@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#171A26">
+<meta name="description" content="PrumoENEM: plataforma de estudos com cálculo de proficiência por TRI e plano orientado pelos pesos do seu curso no SiSU.">
+<title>PrumoENEM — estude pelo que vale nota</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="icone-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- ===== Entrar ===== -->
+<section class="tela" id="tela-entrar">
+  <div class="abertura">
+    <div class="marca marca-abertura">
+      <svg viewBox="0 0 34 34" class="marca-simbolo" aria-hidden="true">
+        <path d="M3 24 C 10 23.4, 13 20, 17 12.5 C 21 5, 24 3.4, 31 3" />
+        <rect x="3" y="26.5" width="28" height="3.4" rx="1.7" class="trilho" />
+        <rect x="15.3" y="24.3" width="3.4" height="7.8" rx="1.7" class="pino" />
+      </svg>
+      <span class="marca-nome">Prumo<b>ENEM</b></span>
+    </div>
+    <h1>Estude pelo que vale nota</h1>
+    <p class="fraco">Sua proficiência é calculada pela mesma teoria que o INEP usa, e o plano de estudo segue os pesos do seu curso no SiSU.</p>
+    <div id="entrar-erro"></div>
+    <div id="entrar-opcoes" style="margin-top:26px"></div>
+  </div>
+</section>
+
+<!-- ===== Painel ===== -->
+<section class="tela" id="tela-painel">
+  <div class="topo">
+    <div>
+      <div class="saudacao">Seu alvo</div>
+      <div class="nome" id="painel-curso">—</div>
+    </div>
+    <div class="chama" id="painel-ofensiva"><span>0</span> dias</div>
+  </div>
+  <div id="painel-conteudo"></div>
+</section>
+
+<!-- ===== Sessão ===== -->
+<section class="tela" id="tela-sessao">
+  <div id="sessao-conteudo"></div>
+</section>
+
+<!-- ===== Resultado ===== -->
+<section class="tela" id="tela-resultado">
+  <div id="resultado-conteudo"></div>
+</section>
+
+<!-- ===== Flashcards ===== -->
+<section class="tela" id="tela-cartoes">
+  <h1>Revisão</h1>
+  <div id="cartoes-conteudo"></div>
+</section>
+
+<!-- ===== Plano ===== -->
+<section class="tela" id="tela-plano">
+  <h1>Plano de estudo</h1>
+  <div id="plano-conteudo"></div>
+</section>
+
+<!-- ===== Perfil ===== -->
+<section class="tela" id="tela-perfil">
+  <h1>Perfil</h1>
+  <div id="perfil-conteudo"></div>
+</section>
+
+<nav class="nav" id="nav">
+  <div class="marca" aria-hidden="true">
+    <svg viewBox="0 0 34 34" class="marca-simbolo">
+      <path d="M3 24 C 10 23.4, 13 20, 17 12.5 C 21 5, 24 3.4, 31 3" />
+      <rect x="3" y="26.5" width="28" height="3.4" rx="1.7" class="trilho" />
+      <rect x="15.3" y="24.3" width="3.4" height="7.8" rx="1.7" class="pino" />
+    </svg>
+    <span class="marca-nome">Prumo<b>ENEM</b></span>
+  </div>
+  <button data-ir="painel" aria-label="Painel">
+    <svg viewBox="0 0 24 24"><path d="M3 13h4l3 7 4-16 3 9h4"/></svg>
+    <span>Painel</span>
+  </button>
+  <button data-ir="sessao" aria-label="Estudar">
+    <svg viewBox="0 0 24 24"><path d="M12 4v16M4 8h4M4 16h4M16 8h4M16 16h4"/><circle cx="12" cy="12" r="9"/></svg>
+    <span>Estudar</span>
+  </button>
+  <button data-ir="cartoes" aria-label="Revisão">
+    <svg viewBox="0 0 24 24"><rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h14v12"/></svg>
+    <span>Revisão</span>
+  </button>
+  <button data-ir="plano" aria-label="Plano">
+    <svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>
+    <span>Plano</span>
+  </button>
+  <button data-ir="perfil" aria-label="Perfil">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+    <span>Perfil</span>
+  </button>
+</nav>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
