@@ -637,7 +637,7 @@ function desenharPerfil() {
       <label for="in-redacao">Sua última nota (0 a 1000)</label>
       <input id="in-redacao" type="number" min="0" max="1000" value="${e.notaRedacao ?? ''}" inputmode="numeric">
       <p class="fraco">Registre aqui a nota que você recebeu no Redação Paraná ou num simulado. Ela entra na média ponderada.</p>
-      <a class="botao secundario" href="https://www.educacao.pr.gov.br/" target="_blank" rel="noopener">Abrir o Redação Paraná</a>
+      <a class="botao secundario" href="https://redacao.pr.gov.br/" target="_blank" rel="noopener">Abrir o Redação Paraná</a>
     </div>
 
     <div class="cartao">
