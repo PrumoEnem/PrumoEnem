@@ -14,8 +14,14 @@ let app = null;
 let auth = null;
 let db = null;
 let sdk = null;
+let falhou = false;
 
-export const nuvemAtiva = () => !MODO_LOCAL && !!FIREBASE.apiKey;
+/**
+ * A nuvem só conta como ativa se estiver configurada E tiver carregado.
+ * Se o SDK não vier (rede ruim, bloqueio, offline no primeiro acesso),
+ * o app cai para modo local em vez de mostrar tela branca.
+ */
+export const nuvemAtiva = () => !MODO_LOCAL && !!FIREBASE.apiKey && !falhou;
 
 async function iniciar() {
   if (app || !nuvemAtiva()) return;
@@ -32,11 +38,18 @@ async function iniciar() {
 
 export async function observarUsuario(callback) {
   // Em modo local o app.js cuida do fluxo; não há usuário para observar.
-  if (!nuvemAtiva()) return;
-  await iniciar();
+  if (!nuvemAtiva()) return false;
+  try {
+    await iniciar();
+  } catch (e) {
+    console.warn('Firebase não carregou; seguindo em modo local.', e);
+    falhou = true;
+    return false;
+  }
   sdk.onAuthStateChanged(auth, (u) => {
     callback(u ? { uid: u.uid, nome: u.displayName || u.email, email: u.email } : null);
   });
+  return true;
 }
 
 export async function entrarComGoogle() {

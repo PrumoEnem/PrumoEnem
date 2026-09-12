@@ -1,0 +1,130 @@
+{
+  "fonte": "Termo de Adesão SiSU 1ª edição de 2026 — UTFPR (código 588)",
+  "ano": 2026,
+  "areas": {
+    "matematica": "Matemática e suas Tecnologias",
+    "natureza": "Ciências da Natureza",
+    "humanas": "Ciências Humanas",
+    "linguagens": "Linguagens e Códigos",
+    "redacao": "Redação"
+  },
+  "cursos": [
+    {
+      "id": "utfpr-mecatronica-guarapuava",
+      "instituicao": "UTFPR",
+      "curso": "Engenharia Mecatrônica",
+      "campus": "Guarapuava",
+      "turno": "Integral (vespertino/noturno)",
+      "vagasSisu": 54,
+      "pesos": { "matematica": 4, "natureza": 2, "humanas": 1, "linguagens": 1, "redacao": 1 }
+    },
+    {
+      "id": "utfpr-mecatronica-ponta-grossa",
+      "instituicao": "UTFPR",
+      "curso": "Engenharia Mecatrônica",
+      "campus": "Ponta Grossa",
+      "turno": "Noturno",
+      "vagasSisu": 30,
+      "pesos": { "matematica": 4, "natureza": 2, "humanas": 1, "linguagens": 1, "redacao": 1 }
+    },
+    {
+      "id": "utfpr-mecatronica-curitiba",
+      "instituicao": "UTFPR",
+      "curso": "Engenharia Mecatrônica",
+      "campus": "Curitiba (Ecoville)",
+      "turno": "Integral (matutino/vespertino)",
+      "vagasSisu": 13,
+      "pesos": { "matematica": 4, "natureza": 2, "humanas": 1, "linguagens": 1, "redacao": 1 }
+    },
+    {
+      "id": "utfpr-eletronica-cornelio",
+      "instituicao": "UTFPR",
+      "curso": "Engenharia Eletrônica",
+      "campus": "Cornélio Procópio",
+      "turno": "Integral (matutino/vespertino)",
+      "vagasSisu": 84,
+      "pesos": { "matematica": 4, "natureza": 2, "humanas": 1, "linguagens": 1, "redacao": 1 }
+    },
+    {
+      "id": "utfpr-eletronica-campo-mourao",
+      "instituicao": "UTFPR",
+      "curso": "Engenharia Eletrônica",
+      "campus": "Campo Mourão",
+      "turno": "Noturno",
+      "vagasSisu": 55,
+      "pesos": { "matematica": 4, "natureza": 2, "humanas": 1, "linguagens": 1, "redacao": 1 }
+    },
+    {
+      "id": "utfpr-eletronica-curitiba",
+      "instituicao": "UTFPR",
+      "curso": "Engenharia Eletrônica",
+      "campus": "Curitiba (Centro)",
+      "turno": "Integral (vespertino/noturno)",
+      "vagasSisu": 13,
+      "pesos": { "matematica": 4, "natureza": 2, "humanas": 1, "linguagens": 1, "redacao": 1 }
+    },
+    {
+      "id": "utfpr-computacao-cornelio",
+      "instituicao": "UTFPR",
+      "curso": "Engenharia de Computação",
+      "campus": "Cornélio Procópio",
+      "turno": "Integral (matutino/vespertino)",
+      "vagasSisu": 20,
+      "pesos": { "matematica": 4, "natureza": 2, "humanas": 1, "linguagens": 1, "redacao": 1 }
+    },
+    {
+      "id": "utfpr-controle-automacao-cornelio",
+      "instituicao": "UTFPR",
+      "curso": "Engenharia de Controle e Automação",
+      "campus": "Cornélio Procópio",
+      "turno": "Integral (matutino/vespertino)",
+      "vagasSisu": 78,
+      "pesos": { "matematica": 4, "natureza": 2, "humanas": 1, "linguagens": 1, "redacao": 1 }
+    },
+    {
+      "id": "utfpr-ciencia-computacao-campo-mourao",
+      "instituicao": "UTFPR",
+      "curso": "Ciência da Computação",
+      "campus": "Campo Mourão",
+      "turno": "Integral (vespertino/noturno)",
+      "vagasSisu": 66,
+      "pesos": { "matematica": 4, "natureza": 2, "humanas": 1, "linguagens": 1, "redacao": 1 }
+    },
+    {
+      "id": "utfpr-eng-software-cornelio",
+      "instituicao": "UTFPR",
+      "curso": "Engenharia de Software",
+      "campus": "Cornélio Procópio",
+      "turno": "Noturno",
+      "vagasSisu": 20,
+      "pesos": { "matematica": 4, "natureza": 2, "humanas": 1, "linguagens": 1, "redacao": 1 }
+    },
+    {
+      "id": "utfpr-eng-quimica-campo-mourao",
+      "instituicao": "UTFPR",
+      "curso": "Engenharia Química",
+      "campus": "Campo Mourão",
+      "turno": "Integral (vespertino/noturno)",
+      "vagasSisu": 27,
+      "pesos": { "matematica": 4, "natureza": 3, "humanas": 1, "linguagens": 1, "redacao": 1 }
+    },
+    {
+      "id": "utfpr-eng-civil-campo-mourao",
+      "instituicao": "UTFPR",
+      "curso": "Engenharia Civil",
+      "campus": "Campo Mourão",
+      "turno": "Integral (vespertino/noturno)",
+      "vagasSisu": 70,
+      "pesos": { "matematica": 4, "natureza": 2, "humanas": 1, "linguagens": 1, "redacao": 1 }
+    },
+    {
+      "id": "personalizado",
+      "instituicao": "Outro",
+      "curso": "Definir os pesos manualmente",
+      "campus": "—",
+      "turno": "—",
+      "vagasSisu": null,
+      "pesos": { "matematica": 1, "natureza": 1, "humanas": 1, "linguagens": 1, "redacao": 1 }
+    }
+  ]
+}

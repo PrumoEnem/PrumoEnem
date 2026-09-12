@@ -11,8 +11,9 @@ cd site
 python3 -m http.server 8000
 ```
 
-Abra `http://localhost:8000`. Já vem em modo local: nada de login, os dados
-ficam no navegador. Dá para usar assim indefinidamente.
+Abra `http://localhost:8000`. O Firebase já está configurado; se os passos do
+console ainda não estiverem feitos, o app cai sozinho para modo local e
+continua utilizável.
 
 Precisa de um servidor mesmo que local — abrir o `index.html` direto pelo
 Finder/Explorer não funciona, porque módulos ES exigem HTTP.
@@ -28,7 +29,7 @@ Finder/Explorer não funciona, porque módulos ES exigem HTTP.
 | Sessão de 9 questões + vocabulário, 3 min cada | pronto |
 | Ofensiva, meta semanal, flashcards com revisão espaçada | pronto |
 | Funciona offline (service worker) | pronto |
-| Login e sincronização entre aparelhos | precisa do Firebase |
+| Login e sincronização entre aparelhos | credenciais prontas, falta ligar no console |
 | Explicações e flashcards por IA | precisa do Worker |
 | Sessão 3/3/3 calibrada por dificuldade | precisa dos parâmetros do INEP |
 
@@ -80,15 +81,28 @@ node scripts/localizar-imagens.mjs
 Baixa o repositório do enem-api, copia as 1.840 imagens para `dados/img/` e
 reescreve os caminhos. Roda uma vez só, leva alguns minutos.
 
-## Passo 3 — Login e sincronização (opcional)
+## Passo 3 — Terminar a configuração do Firebase
 
-Sem isso, seus dados vivem só neste navegador. Limpou o cache, perdeu tudo.
+As credenciais do projeto `prumoenem-6a949` já estão em `js/config.js`, e
+`MODO_LOCAL` está em `false`. Falta ligar as coisas no console.
 
-1. [console.firebase.google.com](https://console.firebase.google.com) → criar projeto
-2. Mantenha o plano **Spark**. Não vincule cartão.
-3. Authentication → Sign-in method → ative **E-mail/senha** e **Google**
-4. Firestore Database → criar banco → modo produção
-5. Regras do Firestore:
+**Sobre a apiKey estar visível no código:** é assim mesmo. A chave web do
+Firebase é pública por design — ela identifica o projeto, não autoriza nada.
+Qualquer pessoa pode ver a chave de qualquer app Firebase abrindo o DevTools.
+O que protege seus dados são os dois passos abaixo.
+
+### 1. Ativar os métodos de login
+
+Console → Authentication → Sign-in method → ative **E-mail/senha** e **Google**.
+
+Sem isso, o botão de entrar devolve `auth/operation-not-allowed`.
+
+### 2. Criar o Firestore e travar as regras
+
+Console → Firestore Database → Criar banco → **modo de produção** →
+região `southamerica-east1` (São Paulo, menor latência daqui).
+
+Depois, aba Regras, substitua tudo por isto:
 
 ```javascript
 rules_version = '2';
@@ -101,16 +115,36 @@ service cloud.firestore {
 }
 ```
 
-6. Configurações do projeto → Seus apps → Web → copie as credenciais
-7. Cole em `js/config.js` e mude `MODO_LOCAL` para `false`
+Publique. Essa linha é o que impede alguém de ler os dados de outro usuário.
+Se você deixar no modo de teste, em 30 dias o banco fecha sozinho — e até lá
+fica aberto para qualquer um.
 
-**O que o Spark não dá:** Cloud Functions e Cloud Storage. Nenhum dos dois é
-usado aqui — a IA roda no Cloudflare e as imagens são arquivos estáticos.
+### 3. Autorizar o domínio depois de publicar
+
+Console → Authentication → Settings → **Authorized domains** → adicione o
+domínio onde o site vai ficar, por exemplo `seu-usuario.github.io`.
+
+`localhost` já vem autorizado, então em desenvolvimento funciona de cara. Se
+esquecer desse passo, o login quebra só em produção, com
+`auth/unauthorized-domain` — erro chato justamente porque funciona na sua
+máquina.
+
+### O que continua fora do plano Spark
+
+Cloud Functions e Cloud Storage exigem Blaze, com cartão. Nenhum dos dois é
+usado aqui: a IA roda no Cloudflare e as imagens são arquivos estáticos.
+Mantenha o projeto no Spark e ele nunca gera fatura — se estourar a cota,
+apenas para até meia-noite.
 
 **Suas cotas:** 50 mil leituras e 20 mil escritas por dia. Uma sessão custa
-cerca de 12 leituras e 2 escritas, então cabem umas 4.000 sessões diárias.
-E como o Spark não tem faturamento vinculado, ele nunca gera conta: se
-estourar, para até meia-noite.
+cerca de 12 leituras e 2 escritas, o que dá espaço para umas 4.000 sessões
+diárias.
+
+### Se o Firebase não carregar
+
+O app detecta e cai para modo local sozinho, com aviso na tela de entrada.
+Você continua estudando; quando a conexão voltar e você entrar na conta, o
+histórico sobe junto. Nenhuma sessão se perde por causa de rede.
 
 ## Passo 4 — IA (opcional)
 

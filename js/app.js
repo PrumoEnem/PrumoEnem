@@ -77,7 +77,8 @@ function desenharEntrar() {
     caixa.innerHTML = `
       <button class="primario" id="btn-local">Começar a estudar</button>
       <p class="fraco" style="margin-top:14px">Modo local: seus dados ficam neste navegador.
-      Exporte um backup de vez em quando pela tela de perfil.</p>`;
+      Exporte um backup de vez em quando pela tela de perfil.</p>
+      ${!MODO_LOCAL ? '<p class="fraco">Não consegui falar com o servidor de login agora. Você pode estudar assim mesmo — quando a conexão voltar, entre com sua conta e o histórico sobe junto.</p>' : ''}`;
     $('#btn-local').onclick = async () => { await est.puxarDaNuvem('local'); abrirApp(); };
     return;
   }
@@ -199,8 +200,10 @@ async function iniciarSessao() {
     questoes = await carregarQuestoes(area);
     if (!bancoVocabulario) bancoVocabulario = await carregarVocabulario();
   } catch (err) {
-    $('#sessao-conteudo').innerHTML = `<div class="erro-caixa">${escapar(err.message)}</div>
-      <button onclick="location.reload()">Tentar de novo</button>`;
+    $('#sessao-conteudo').innerHTML = `
+      <div class="erro-caixa">${escapar(err.message)}</div>
+      <p class="fraco">Confira se a pasta <code>dados/</code> foi enviada junto com o site.</p>
+      <button class="primario" onclick="location.reload()">Tentar de novo</button>`;
     return;
   }
 
@@ -687,8 +690,44 @@ document.addEventListener('keydown', (ev) => {
 
 // ---------------------------------------------------------------- início
 
+function telaDeFalha(erro) {
+  ir('painel');
+  $('#painel-conteudo').innerHTML = `
+    <div class="erro-caixa">Não consegui carregar os dados das questões.</div>
+    <div class="cartao">
+      <h3>O que provavelmente aconteceu</h3>
+      <p class="fraco">A pasta <code>dados/</code> não chegou ao servidor, ou o
+      endereço do site mudou. O arquivo que faltou foi:</p>
+      <p class="fraco"><code>${escapar(new URL('dados/cursos.json', location.href).pathname)}</code></p>
+      <p class="fraco">Abra esse endereço direto no navegador. Se der 404, os
+      arquivos JSON não foram enviados junto com o site.</p>
+      <p class="fraco">Detalhe técnico: ${escapar(erro.message)}</p>
+    </div>
+    <button class="primario" id="btn-recarregar">Tentar de novo</button>
+    <button class="secundario" id="btn-limpar-cache">Limpar cache e recarregar</button>`;
+  $('#btn-recarregar').onclick = () => location.reload();
+  $('#btn-limpar-cache').onclick = async () => {
+    // Service worker velho servindo versão antiga é a segunda causa mais comum.
+    if ('serviceWorker' in navigator) {
+      const registros = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registros.map((r) => r.unregister()));
+    }
+    if (window.caches) {
+      const chaves = await caches.keys();
+      await Promise.all(chaves.map((k) => caches.delete(k)));
+    }
+    location.reload();
+  };
+}
+
 async function abrirApp() {
-  cursos = await carregarCursos();
+  try {
+    cursos = await carregarCursos();
+  } catch (erro) {
+    console.error(erro);
+    telaDeFalha(erro);
+    return;
+  }
   ir(est.estado.alvo.pesos ? 'painel' : 'perfil');
 }
 
@@ -705,11 +744,17 @@ async function principal() {
     return;
   }
 
-  await nuvem.observarUsuario(async (usuario) => {
+  const conectou = await nuvem.observarUsuario(async (usuario) => {
     if (!usuario) { ir('entrar'); desenharEntrar(); return; }
     await est.puxarDaNuvem(usuario.uid);
     await abrirApp();
   });
+
+  // O SDK não veio: segue em modo local para o app não ficar em branco.
+  if (!conectou) {
+    if (est.estado.uid) { await est.puxarDaNuvem(est.estado.uid); await abrirApp(); }
+    else { ir('entrar'); desenharEntrar(); }
+  }
 }
 
 principal();

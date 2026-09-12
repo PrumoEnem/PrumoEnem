@@ -454,3 +454,10 @@ input:focus, select:focus { outline: none; border-color: var(--azul); box-shadow
 .enunciado strong { font-weight: 650; color: var(--texto); }
 .enunciado em { font-style: italic; color: #d4d8e8; }
 .alternativa strong { font-weight: 650; }
+
+code {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: .88em; background: var(--elevado);
+  padding: 2px 6px; border-radius: 5px;
+  overflow-wrap: anywhere;
+}
