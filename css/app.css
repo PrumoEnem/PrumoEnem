@@ -1,0 +1,456 @@
+/* app.css — painel de instrumentos para estudo noturno. Mobile-first. */
+
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('../fontes/space-grotesk-latin-wght-normal.woff2') format('woff2-variations');
+  font-weight: 300 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Manrope';
+  src: url('../fontes/manrope-latin-wght-normal.woff2') format('woff2-variations');
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+:root {
+  --fundo: #12151f;
+  --fundo-alto: #191d2b;
+  --superficie: #1e2333;
+  --elevado: #272d41;
+  --linha: #313850;
+  --linha-fraca: #262c3e;
+  --texto: #eceefa;
+  --fraco: #8d95b0;
+  --apagado: #646c85;
+
+  /* Azul mede proficiência. Âmbar mede tempo. Nunca se misturam. */
+  --azul: #62aef8;
+  --azul-forte: #8cc6ff;
+  --azul-fundo: #16304f;
+  --ambar: #f4b350;
+  --ambar-fundo: #382a11;
+  --acerto: #52c793;
+  --erro: #ec6f83;
+
+  --r-p: 8px;
+  --r-m: 14px;
+  --r-g: 20px;
+  --toque: 48px;
+
+  --display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --corpo: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+/* Nenhuma imagem do banco de questões pode estourar o container. */
+img { max-width: 100%; height: auto; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: var(--corpo);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+/* Leve profundidade: o topo respira, o rodapé assenta. */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(120% 60% at 50% 0%, #1b2133 0%, var(--fundo) 62%);
+}
+
+body { padding-bottom: calc(74px + env(safe-area-inset-bottom)); }
+
+h1, h2, h3 {
+  font-family: var(--display);
+  line-height: 1.2;
+  margin: 0 0 12px;
+  font-weight: 600;
+  letter-spacing: -0.022em;
+}
+h1 { font-size: 27px; margin-bottom: 18px; }
+h2 { font-size: 20px; margin-top: 30px; }
+h3 { font-size: 16px; letter-spacing: -0.012em; }
+p { margin: 0 0 14px; max-width: 66ch; }
+
+a { color: var(--azul); }
+
+.tela { display: none; padding: 22px 18px 30px; max-width: 660px; margin: 0 auto; }
+.tela.ativa { display: block; }
+
+.fraco { color: var(--fraco); font-size: 14px; line-height: 1.55; }
+.centro { text-align: center; }
+.numero { font-family: var(--display); font-variant-numeric: tabular-nums; }
+
+/* ---------- Cabeçalho ---------- */
+
+.topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 24px; }
+.topo .saudacao { font-size: 12.5px; color: var(--apagado); margin-bottom: 2px; }
+.topo .nome { font-family: var(--display); font-size: 19px; font-weight: 600; letter-spacing: -0.018em; line-height: 1.3; }
+
+.chama {
+  display: flex; align-items: baseline; gap: 5px; flex-shrink: 0;
+  background: var(--ambar-fundo); color: var(--ambar);
+  border: 1px solid rgba(244, 179, 80, 0.24);
+  padding: 8px 14px; border-radius: 999px;
+  font-family: var(--display); font-size: 13px; font-weight: 500;
+}
+.chama span { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.chama.apagada { background: var(--superficie); color: var(--apagado); border-color: var(--linha-fraca); }
+
+/* ---------- A escala: o elemento principal ---------- */
+
+.escala {
+  position: relative; overflow: hidden;
+  background: linear-gradient(168deg, #222941 0%, var(--superficie) 55%);
+  border: 1px solid var(--linha);
+  border-radius: var(--r-g);
+  padding: 22px 20px 18px;
+  margin-bottom: 16px;
+}
+/* A curva característica do item, de marca d'água. */
+.escala .curva { position: absolute; top: 10px; right: 18px; width: 44%; height: 62px; pointer-events: none; }
+.escala .curva path { fill: none; stroke: var(--azul); stroke-width: 2; opacity: .28; }
+
+/* Rótulo abaixo do número: libera o canto superior direito para a curva. */
+.escala-valor { position: relative; margin-bottom: 2px; }
+.escala-valor .n {
+  font-family: var(--display); font-size: 54px; font-weight: 600;
+  color: var(--azul-forte); letter-spacing: -0.045em; line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.escala-valor .n .til { font-size: 30px; color: var(--azul); opacity: .6; letter-spacing: -0.02em; }
+.escala-valor .rotulo { display: block; font-size: 13px; color: var(--fraco); line-height: 1.4; max-width: 24ch; margin-top: 8px; }
+
+.trilho { position: relative; height: 42px; margin: 24px 0 4px; }
+.trilho-base { position: absolute; top: 16px; left: 0; right: 0; height: 6px; background: #10131d; border-radius: 4px; box-shadow: inset 0 1px 2px rgba(0,0,0,.5); }
+.trilho-faixa { position: absolute; top: 16px; height: 6px; background: var(--azul-fundo); border-radius: 4px; transition: left .5s cubic-bezier(.2,.7,.3,1), width .5s cubic-bezier(.2,.7,.3,1); }
+.trilho-marca {
+  position: absolute; top: 8px; width: 4px; height: 22px;
+  background: var(--azul-forte); border-radius: 3px; transform: translateX(-50%);
+  box-shadow: 0 0 14px rgba(140, 198, 255, .55);
+  transition: left .5s cubic-bezier(.2,.7,.3,1);
+}
+.trilho-alvo { position: absolute; top: 11px; width: 2px; height: 16px; background: var(--apagado); opacity: .7; transform: translateX(-50%); }
+.trilho-alvo::after {
+  content: 'alvo 700'; position: absolute; top: 19px; left: 50%; transform: translateX(-50%);
+  font-family: var(--display); font-size: 10.5px; color: var(--fraco); white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+/* Só 0 · 500 · 1000: com space-between, esses três caem na posição certa.
+   Incluir 700 na legenda o colocaria a 66% em vez de 70%. */
+.trilho-legenda { display: flex; justify-content: space-between; font-family: var(--display); font-size: 10.5px; color: var(--apagado); font-variant-numeric: tabular-nums; }
+
+.aviso-precisao { margin-top: 14px; font-size: 13px; line-height: 1.5; color: var(--fraco); border-top: 1px solid var(--linha-fraca); padding-top: 12px; }
+
+/* ---------- Cartões ---------- */
+
+.cartao { background: var(--superficie); border: 1px solid var(--linha-fraca); border-radius: var(--r-m); padding: 17px 18px; margin-bottom: 12px; }
+.cartao h3 { margin-bottom: 12px; color: var(--texto); }
+.cartao > *:last-child { margin-bottom: 0; }
+
+.barra { height: 8px; background: #10131d; border-radius: 5px; overflow: hidden; margin: 10px 0; }
+.barra > i { display: block; height: 100%; background: linear-gradient(90deg, var(--azul), var(--azul-forte)); border-radius: 5px; transition: width .45s ease; }
+.barra.tempo > i { background: linear-gradient(90deg, var(--ambar), #ffc978); transition: width 1s linear; }
+
+.linha-area { display: flex; align-items: center; gap: 14px; padding: 13px 0; border-bottom: 1px solid var(--linha-fraca); }
+.linha-area:last-child { border-bottom: none; padding-bottom: 2px; }
+.linha-area .rotulo { flex: 1; min-width: 0; }
+.linha-area .rotulo b { font-family: var(--display); display: block; font-weight: 550; font-size: 15px; letter-spacing: -0.012em; }
+.linha-area .pct { font-family: var(--display); font-size: 21px; color: var(--azul-forte); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.peso {
+  display: inline-block; font-family: var(--display); font-size: 11px;
+  color: var(--fraco); background: var(--elevado); border-radius: 5px;
+  padding: 1px 7px; margin-left: 7px; vertical-align: 1px; font-weight: 500;
+}
+
+/* ---------- Botões ---------- */
+
+button, .botao {
+  font-family: var(--display); font-size: 16px; font-weight: 550; letter-spacing: -0.01em;
+  min-height: var(--toque); padding: 13px 20px;
+  border-radius: var(--r-m); border: 1px solid var(--linha);
+  background: var(--elevado); color: var(--texto);
+  cursor: pointer; width: 100%; display: block; text-align: center;
+  text-decoration: none; transition: filter .15s, transform .1s;
+}
+button:active { transform: scale(.988); filter: brightness(1.18); }
+button:focus-visible, .alternativa:focus-visible { outline: 3px solid var(--azul); outline-offset: 2px; }
+button[disabled] { opacity: .4; cursor: not-allowed; }
+button[disabled]:active { transform: none; }
+
+.primario {
+  background: linear-gradient(180deg, var(--azul-forte), var(--azul));
+  border-color: var(--azul-forte); color: #09182a; font-weight: 650;
+  box-shadow: 0 5px 18px -8px rgba(98, 174, 248, .75);
+}
+.secundario { background: transparent; }
+.linha-botoes { display: flex; gap: 10px; }
+.linha-botoes button { flex: 1; }
+
+/* ---------- Sessão ---------- */
+
+.sessao-topo { position: sticky; top: 0; z-index: 5; background: var(--fundo); padding: 12px 0 11px; margin-bottom: 18px; box-shadow: 0 10px 14px -10px var(--fundo); }
+.sessao-info { display: flex; justify-content: space-between; align-items: baseline; font-size: 13.5px; color: var(--fraco); margin-bottom: 10px; gap: 10px; }
+.sessao-info .area { font-family: var(--display); font-weight: 550; color: var(--texto); font-size: 15px; letter-spacing: -0.012em; }
+.sessao-info .contador { font-family: var(--display); font-variant-numeric: tabular-nums; color: var(--apagado); }
+.cronometro { font-family: var(--display); font-size: 16px; font-weight: 600; color: var(--ambar); font-variant-numeric: tabular-nums; }
+.cronometro.urgente { color: var(--erro); }
+
+.enunciado { font-size: 16px; line-height: 1.68; margin-bottom: 22px; white-space: pre-wrap; color: #dfe2f0; }
+.enunciado img { max-width: 100%; height: auto; border-radius: var(--r-p); margin: 14px 0; background: #fff; display: block; }
+
+.alternativa {
+  display: flex; gap: 13px; align-items: flex-start;
+  width: 100%; text-align: left; padding: 13px 15px;
+  margin-bottom: 9px; min-height: var(--toque);
+  background: var(--superficie); border: 1px solid var(--linha-fraca);
+  border-radius: var(--r-m); color: var(--texto);
+  font-family: var(--corpo); font-size: 15.5px; font-weight: 400; line-height: 1.5;
+  transition: border-color .15s, background .15s;
+}
+.alternativa > span:last-child {
+  /* Sem min-width:0 o item flex se recusa a encolher abaixo do conteúdo,
+     e uma imagem larga empurra a alternativa para fora da tela. */
+  min-width: 0; flex: 1; overflow-wrap: break-word;
+}
+.alternativa img {
+  display: block; max-width: 100%; height: auto;
+  border-radius: var(--r-p); background: #fff; margin: 2px 0;
+}
+
+.alternativa .letra {
+  font-family: var(--display); font-weight: 600; font-size: 13px;
+  color: var(--fraco); flex-shrink: 0;
+  width: 25px; height: 25px; border-radius: 50%;
+  background: var(--elevado); display: grid; place-items: center;
+  margin-top: 1px; transition: background .15s, color .15s;
+}
+.alternativa.marcada { border-color: var(--azul); background: var(--azul-fundo); }
+.alternativa.marcada .letra { background: var(--azul); color: #09182a; }
+.alternativa.certa { border-color: var(--acerto); background: rgba(82, 199, 147, .12); }
+.alternativa.certa .letra { background: var(--acerto); color: #062117; }
+.alternativa.errada { border-color: var(--erro); background: rgba(236, 111, 131, .12); }
+.alternativa.errada .letra { background: var(--erro); color: #2a0810; }
+
+.rodape-sessao {
+  position: sticky; bottom: calc(74px + env(safe-area-inset-bottom));
+  padding: 16px 0 10px; margin-top: 10px;
+  /* Fundo sólido: com gradiente o enunciado vazava por baixo do botão. */
+  background: var(--fundo);
+  box-shadow: 0 -16px 20px -8px var(--fundo);
+}
+
+/* ---------- Resultado ---------- */
+
+.placar { display: flex; gap: 9px; margin-bottom: 20px; }
+.placar > div { flex: 1; background: var(--superficie); border: 1px solid var(--linha-fraca); border-radius: var(--r-m); padding: 15px 8px 13px; text-align: center; }
+.placar .n { font-family: var(--display); font-size: 26px; font-weight: 600; display: block; line-height: 1.1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.placar .r { font-size: 11.5px; color: var(--apagado); display: block; margin-top: 5px; }
+
+.revisao { border-left: 2px solid var(--erro); padding: 2px 0 2px 15px; margin-bottom: 22px; }
+.revisao > b { font-family: var(--display); font-size: 14.5px; font-weight: 550; letter-spacing: -0.01em; }
+.explicacao { background: var(--superficie); border-radius: var(--r-m); padding: 15px; margin-top: 11px; font-size: 15px; line-height: 1.62; white-space: pre-wrap; }
+
+.trava {
+  background: var(--ambar-fundo); border: 1px solid rgba(244, 179, 80, .26);
+  border-radius: var(--r-m); padding: 14px; font-size: 14px;
+  line-height: 1.5; color: var(--ambar); margin-bottom: 18px;
+}
+
+/* ---------- Flashcards ---------- */
+
+.flash {
+  background: linear-gradient(168deg, #222941 0%, var(--superficie) 60%);
+  border: 1px solid var(--linha); border-radius: var(--r-g);
+  min-height: 215px; padding: 26px 22px;
+  display: flex; flex-direction: column; justify-content: center;
+  text-align: center; margin-bottom: 14px;
+}
+.flash .frente { font-family: var(--display); font-size: 19px; font-weight: 550; letter-spacing: -0.015em; line-height: 1.35; }
+.flash .verso { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--linha); font-size: 15.5px; line-height: 1.6; color: #dfe2f0; }
+
+.notas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+.notas button { font-size: 13px; padding: 13px 4px; border-radius: var(--r-p); }
+
+/* ---------- Formulários ---------- */
+
+label { display: block; font-size: 13px; color: var(--fraco); margin: 16px 0 7px; }
+input, select {
+  width: 100%; min-height: var(--toque); padding: 12px 14px;
+  font-family: var(--corpo); font-size: 16px; /* 16px evita o zoom automático no iOS */
+  background: var(--fundo-alto); color: var(--texto);
+  border: 1px solid var(--linha); border-radius: var(--r-m);
+}
+input:focus, select:focus { outline: none; border-color: var(--azul); box-shadow: 0 0 0 3px rgba(98, 174, 248, .16); }
+
+/* ---------- Navegação inferior ---------- */
+
+.nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
+  display: flex; background: rgba(24, 28, 42, .93);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--linha-fraca);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.nav button {
+  flex: 1; border: none; border-radius: 0; background: none;
+  padding: 11px 2px 9px; min-height: 64px;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  font-family: var(--display); font-size: 10.5px; font-weight: 500; color: var(--apagado);
+  position: relative;
+}
+.nav button svg { width: 21px; height: 21px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.nav button.ativo { color: var(--azul-forte); }
+.nav button.ativo::before {
+  content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 26px; height: 2px; background: var(--azul-forte); border-radius: 0 0 2px 2px;
+}
+.nav button:active { transform: none; }
+
+/* ---------- Marca (só na barra lateral do desktop) ---------- */
+
+.marca { display: none; align-items: center; gap: 10px; padding: 22px 14px 20px; }
+.marca-simbolo { width: 28px; height: 28px; flex-shrink: 0; }
+.marca-simbolo path { fill: none; stroke: var(--azul); stroke-width: 2.6; stroke-linecap: round; }
+/* Trilho claro o bastante para não virar sombra em tamanho pequeno. */
+.marca-simbolo .trilho { fill: var(--linha); }
+.marca-simbolo .pino { fill: var(--azul-forte); }
+.marca-nome {
+  font-family: var(--display); font-size: 18px; font-weight: 650;
+  letter-spacing: -0.028em; color: var(--texto); white-space: nowrap;
+}
+/* "ENEM" mais leve e em azul: lê como uma palavra só, mas o olho separa. */
+.marca-nome b { font-weight: 400; color: var(--azul); }
+
+/* Na abertura a marca aparece grande — é a única tela do celular que a mostra. */
+.marca-abertura { display: flex; padding: 0; margin-bottom: 30px; gap: 12px; }
+.marca-abertura .marca-simbolo { width: 38px; height: 38px; }
+.marca-abertura .marca-nome { font-size: 25px; }
+.abertura { padding-top: 44px; }
+
+/* ---------- Diversos ---------- */
+
+.vazio { text-align: center; padding: 50px 20px; color: var(--fraco); }
+.vazio h3 { color: var(--texto); font-size: 18px; }
+.vazio p { margin-left: auto; margin-right: auto; }
+
+.carregando { text-align: center; padding: 44px; color: var(--fraco); }
+.carregando::after { content: ''; display: block; width: 24px; height: 24px; margin: 16px auto 0; border: 2px solid var(--linha); border-top-color: var(--azul); border-radius: 50%; animation: girar .8s linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
+
+.erro-caixa { background: rgba(236, 111, 131, .1); border: 1px solid rgba(236, 111, 131, .45); color: var(--erro); border-radius: var(--r-m); padding: 14px; font-size: 14px; margin-bottom: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+@media (min-width: 720px) {
+  body { padding-bottom: 30px; padding-top: 66px; }
+  .nav { top: 0; bottom: auto; border-top: none; border-bottom: 1px solid var(--linha-fraca); max-width: 660px; margin: 0 auto; }
+  .nav button { flex-direction: row; gap: 9px; font-size: 14px; min-height: 58px; }
+  .nav button.ativo::before { top: auto; bottom: 0; border-radius: 2px 2px 0 0; width: 40px; }
+  .rodape-sessao { bottom: 0; }
+  .escala-valor .n { font-size: 62px; }
+}
+
+/* =========================================================
+   Desktop — a partir de 900px o app vira painel de duas colunas.
+   ========================================================= */
+
+@media (min-width: 900px) {
+  body { padding-bottom: 40px; padding-top: 0; }
+
+  /* Navegação vira barra lateral fixa. */
+  .nav {
+    flex-direction: column; justify-content: flex-start;
+    top: 0; bottom: 0; right: auto; left: 0; width: 232px;
+    max-width: none; margin: 0;
+    padding: 0 12px env(safe-area-inset-bottom);
+    border-top: none; border-bottom: none;
+    border-right: 1px solid var(--linha-fraca);
+    background: rgba(24, 28, 42, .7);
+  }
+  .marca { display: flex; }
+  .nav button {
+    flex: 0 0 auto; flex-direction: row; justify-content: flex-start;
+    gap: 13px; padding: 11px 14px; min-height: 46px;
+    font-size: 14.5px; font-weight: 500;
+    border-radius: var(--r-p); margin-bottom: 2px;
+  }
+  .nav button svg { width: 19px; height: 19px; }
+  .nav button.ativo { background: var(--azul-fundo); }
+  .nav button.ativo::before {
+    top: 50%; left: 0; transform: translateY(-50%);
+    width: 3px; height: 20px; border-radius: 0 3px 3px 0;
+  }
+
+  .tela { margin-left: 232px; max-width: 1060px; padding: 36px 42px 48px; }
+  h1 { font-size: 31px; margin-bottom: 24px; }
+
+  /* Painel: a escala ocupa a largura toda, o resto pareia. */
+  #painel-conteudo { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+  #painel-conteudo > .escala,
+  #painel-conteudo > #btn-estudar,
+  #painel-conteudo > .vazio { grid-column: 1 / -1; }
+  #painel-conteudo > .cartao { margin-bottom: 0; }
+  #btn-estudar { max-width: 320px; margin-top: 8px; }
+  .escala { padding: 30px 32px 24px; }
+  .escala .curva { width: 40%; height: 92px; top: 18px; right: 28px; }
+  .escala-valor .rotulo { max-width: none; }
+
+  /* Plano e perfil em duas colunas. */
+  #plano-conteudo, #perfil-conteudo { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+  #plano-conteudo > .cartao, #perfil-conteudo > .cartao { margin-bottom: 0; }
+  #perfil-conteudo > button { grid-column: 1 / -1; max-width: 280px; }
+
+  /* Revisão: o cartão não precisa atravessar a tela. */
+  #cartoes-conteudo { max-width: 560px; }
+}
+
+@media (min-width: 1040px) {
+  /* Sessão: enunciado à esquerda, alternativas fixas à direita.
+     Fim do vai-e-volta entre ler e responder. */
+  #sessao-conteudo {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(340px, 1fr);
+    column-gap: 40px;
+    align-items: start;
+  }
+  .sessao-topo, .aviso-calibracao { grid-column: 1 / -1; }
+  .enunciado { grid-column: 1; grid-row: 3 / span 2; margin-bottom: 0; font-size: 16.5px; }
+  #alternativas {
+    grid-column: 2; grid-row: 3; position: sticky; top: 104px;
+    /* Com alternativas em imagem a coluna pode passar da tela; aí ela rola
+       sozinha em vez de ficar cortada. */
+    max-height: calc(100vh - 230px); overflow-y: auto;
+    scrollbar-width: thin;
+  }
+  .rodape-sessao {
+    grid-column: 2; grid-row: 4;
+    position: sticky; top: 104px;
+    padding: 4px 0 0; margin-top: 14px;
+    background: none; box-shadow: none;
+  }
+  .sessao-info { font-size: 14.5px; }
+
+  /* Resultado: placar largo, revisões em coluna legível. */
+  #resultado-conteudo { max-width: 780px; }
+  .explicacao { font-size: 15.5px; }
+}
+
+@media (min-width: 1400px) {
+  .tela { margin-left: 232px; margin-right: 0; max-width: 1180px; }
+}
+
+/* Markdown vindo do enunciado. */
+.enunciado strong { font-weight: 650; color: var(--texto); }
+.enunciado em { font-style: italic; color: #d4d8e8; }
+.alternativa strong { font-weight: 650; }
