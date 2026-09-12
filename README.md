@@ -93,31 +93,43 @@ O que protege seus dados são os dois passos abaixo.
 
 ### 1. Ativar os métodos de login
 
-Console → Authentication → Sign-in method → ative **E-mail/senha** e **Google**.
+Console → Authentication → Sign-in method → ative **apenas o Google**.
 
-Sem isso, o botão de entrar devolve `auth/operation-not-allowed`.
+Sem isso, o botão devolve `auth/operation-not-allowed`. O login por e-mail e
+senha foi removido do código: com restrição de domínio ele seria um buraco,
+já que qualquer pessoa digita qualquer endereço no cadastro.
 
 ### 2. Criar o Firestore e travar as regras
 
 Console → Firestore Database → Criar banco → **modo de produção** →
 região `southamerica-east1` (São Paulo, menor latência daqui).
 
-Depois, aba Regras, substitua tudo por isto:
+Depois, aba Regras: cole o conteúdo do arquivo `firestore.rules` e publique.
+
+Essa regra faz duas coisas: só deixa cada estudante ler a própria pasta, e
+só aceita contas terminadas em `@escola.pr.gov.br` com e-mail verificado.
+
+**Por que a regra e não só o JavaScript:** a checagem em `js/config.js` roda
+no navegador do usuário, e qualquer pessoa desativa em dois cliques no
+DevTools. A regra roda no servidor do Google e não tem como contornar. Se
+você mudar `DOMINIO_PERMITIDO` sem mudar a regra, não protegeu nada — e se
+mudar a regra sem mudar o config, o usuário loga e depois toma erro sem
+entender.
+
+### 2c. Abrir para o público depois
+
+Quando quiser tirar a restrição, são dois lugares:
+
+1. `js/config.js` → `DOMINIO_PERMITIDO = ''`
+2. `firestore.rules` → apague a linha do `matches(...)` e republique
+
+Para liberar contas específicas sem abrir tudo (a sua pessoal, por exemplo),
+use `EMAILS_LIBERADOS` no config **e** acrescente o e-mail na regra:
 
 ```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /usuarios/{uid}/{documento=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
-    }
-  }
-}
+&& (request.auth.token.email.matches('.*@escola[.]pr[.]gov[.]br')
+    || request.auth.token.email == 'seuemail@gmail.com')
 ```
-
-Publique. Essa linha é o que impede alguém de ler os dados de outro usuário.
-Se você deixar no modo de teste, em 30 dias o banco fecha sozinho — e até lá
-fica aberto para qualquer um.
 
 ### 3. Autorizar o domínio depois de publicar
 

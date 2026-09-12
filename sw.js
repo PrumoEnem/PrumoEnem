@@ -1,6 +1,6 @@
 /* sw.js — cache-first para o app, stale-while-revalidate para os dados. */
 
-const VERSAO = 'v3';
+const VERSAO = 'v4';
 const ESTATICO = `estatico-${VERSAO}`;
 const DADOS = `dados-${VERSAO}`;
 
@@ -57,6 +57,21 @@ self.addEventListener('fetch', (e) => {
           return r;
         } catch { return new Response('', { status: 504 }); }
       })
+    );
+    return;
+  }
+
+  // Código (html, js, css) vai pela rede primeiro.
+  // Cache-first aqui significa usuário preso numa versão antiga depois de
+  // cada deploy — foi exatamente o que aconteceu com o config.js.
+  if (/\.(js|css|html)$/i.test(url.pathname) || url.pathname.endsWith('/')) {
+    e.respondWith(
+      fetch(e.request)
+        .then((r) => {
+          if (r.ok) caches.open(ESTATICO).then((c) => c.put(e.request, r.clone()));
+          return r;
+        })
+        .catch(() => caches.match(e.request).then((c) => c || caches.match('./index.html')))
     );
     return;
   }

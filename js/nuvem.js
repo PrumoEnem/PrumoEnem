@@ -6,7 +6,7 @@
  * configurar o projeto.
  */
 
-import { FIREBASE, MODO_LOCAL } from './config.js';
+import { FIREBASE, MODO_LOCAL, DOMINIO_PERMITIDO, EMAILS_LIBERADOS } from './config.js';
 
 const CDN = 'https://www.gstatic.com/firebasejs/10.12.0';
 
@@ -46,22 +46,51 @@ export async function observarUsuario(callback) {
     falhou = true;
     return false;
   }
-  sdk.onAuthStateChanged(auth, (u) => {
+  sdk.onAuthStateChanged(auth, async (u) => {
+    // Sessão antiga de conta fora do domínio (ou domínio mudou depois): expulsa.
+    if (u && !emailPermitido(u.email)) {
+      await sdk.signOut(auth);
+      callback(null, new ContaNaoPermitida(u.email));
+      return;
+    }
     callback(u ? { uid: u.uid, nome: u.displayName || u.email, email: u.email } : null);
   });
   return true;
 }
 
+/** O e-mail tem permissão de entrar? */
+export function emailPermitido(email) {
+  if (!DOMINIO_PERMITIDO) return true;
+  if (!email) return false;
+  const limpo = email.toLowerCase().trim();
+  if (EMAILS_LIBERADOS.map((x) => x.toLowerCase()).includes(limpo)) return true;
+  return limpo.endsWith('@' + DOMINIO_PERMITIDO.toLowerCase());
+}
+
+export class ContaNaoPermitida extends Error {
+  constructor(email) {
+    super(`A conta ${email || 'usada'} não é do domínio @${DOMINIO_PERMITIDO}. ` +
+          'Entre com seu e-mail @escola, o mesmo do Classroom.');
+    this.name = 'ContaNaoPermitida';
+  }
+}
+
 export async function entrarComGoogle() {
   await iniciar();
   const provedor = new sdk.GoogleAuthProvider();
-  await sdk.signInWithPopup(auth, provedor);
-}
+  // hd faz o Google já mostrar só contas desse domínio no seletor.
+  // É conveniência, não segurança: dá para contornar. A regra do Firestore
+  // é o que realmente barra.
+  if (DOMINIO_PERMITIDO) provedor.setCustomParameters({ hd: DOMINIO_PERMITIDO, prompt: 'select_account' });
 
-export async function entrarComEmail(email, senha, criar = false) {
-  await iniciar();
-  const fn = criar ? sdk.createUserWithEmailAndPassword : sdk.signInWithEmailAndPassword;
-  await fn(auth, email, senha);
+  const credencial = await sdk.signInWithPopup(auth, provedor);
+  const email = credencial.user?.email;
+
+  if (!emailPermitido(email)) {
+    // Desloga antes de devolver o erro, senão a sessão fica pendurada.
+    await sdk.signOut(auth);
+    throw new ContaNaoPermitida(email);
+  }
 }
 
 export async function sair() {

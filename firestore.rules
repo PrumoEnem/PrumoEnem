@@ -1,0 +1,35 @@
+rules_version = '2';
+
+// PrumoENEM — regras do Firestore.
+//
+// Esta é a única camada que realmente restringe o acesso. A checagem no
+// navegador (DOMINIO_PERMITIDO em js/config.js) serve para dar mensagem
+// decente ao usuário; ela é contornável em dois cliques no DevTools.
+//
+// Cole em: Console do Firebase → Firestore Database → Regras → Publicar.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function daRedeEstadual() {
+      return request.auth != null
+        // Contas do Google Workspace já vêm com o e-mail verificado.
+        // Sem esta linha, alguém poderia cadastrar-se por e-mail/senha
+        // digitando um endereço @escola que não é dele.
+        && request.auth.token.email_verified == true
+        // Os pontos vão escapados: em regex, '.' sozinho casa com qualquer
+        // caractere, e 'escolaXprYgovZbr' passaria.
+        && request.auth.token.email.matches('.*@escola[.]pr[.]gov[.]br');
+    }
+
+    // Cada estudante só enxerga a própria pasta.
+    match /usuarios/{uid}/{documento=**} {
+      allow read, write: if daRedeEstadual() && request.auth.uid == uid;
+    }
+
+    // Nada mais é acessível.
+    match /{documento=**} {
+      allow read, write: if false;
+    }
+  }
+}

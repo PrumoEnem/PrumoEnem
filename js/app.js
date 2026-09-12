@@ -7,7 +7,7 @@ import * as srs from './srs.js';
 import * as est from './estado.js';
 import * as nuvem from './nuvem.js';
 import * as ia from './ia.js';
-import { MODO_LOCAL } from './config.js';
+import { MODO_LOCAL, DOMINIO_PERMITIDO } from './config.js';
 
 const $ = (s) => document.querySelector(s);
 const SEGUNDOS_POR_QUESTAO = 180;
@@ -44,6 +44,8 @@ function formatarEnunciado(texto, imagens = []) {
 let sessao = null;
 let cursos = null;
 let bancoVocabulario = null;
+/** True quando o Firebase está configurado mas não carregou nesta sessão. */
+let quedaParaLocal = false;
 
 // ---------------------------------------------------------------- navegação
 
@@ -84,23 +86,28 @@ function desenharEntrar() {
   }
   caixa.innerHTML = `
     <button class="primario" id="btn-google">Entrar com Google</button>
-    <div style="margin-top:22px">
-      <label for="in-email">E-mail</label>
-      <input id="in-email" type="email" autocomplete="email">
-      <label for="in-senha">Senha</label>
-      <input id="in-senha" type="password" autocomplete="current-password">
-      <div class="linha-botoes" style="margin-top:14px">
-        <button id="btn-entrar">Entrar</button>
-        <button class="secundario" id="btn-criar">Criar conta</button>
-      </div>
-    </div>`;
+    <p class="fraco" style="margin-top:12px">${DOMINIO_PERMITIDO
+      ? `Use seu e-mail <b>@${escapar(DOMINIO_PERMITIDO)}</b>, o mesmo do Classroom.
+         Outras contas não têm acesso.`
+      : 'Entrar cria sua conta automaticamente na primeira vez.'}</p>`;
 
-  const erro = (e) => { $('#entrar-erro').innerHTML = `<div class="erro-caixa">${escapar(e.message)}</div>`; };
+  if (est.estado.uid) {
+    caixa.insertAdjacentHTML('beforeend',
+      `<button class="secundario" id="btn-voltar-local" style="margin-top:14px">Continuar sem entrar</button>`);
+    $('#btn-voltar-local').onclick = () => abrirApp();
+  }
+
+  const erro = (e) => {
+    const amigavel = {
+      'auth/popup-closed-by-user': 'Você fechou a janela do Google antes de terminar.',
+      'auth/operation-not-allowed': 'O login com Google não está ativado no Firebase (Authentication → Sign-in method).',
+      'auth/popup-blocked': 'Seu navegador bloqueou a janela do Google. Libere pop-ups para este site.',
+      'auth/unauthorized-domain': 'Este endereço não está autorizado no Firebase (Authentication → Settings → Authorized domains).',
+      'auth/network-request-failed': 'Sem conexão com o servidor de login.',
+    }[e.code];
+    $('#entrar-erro').innerHTML = `<div class="erro-caixa">${escapar(amigavel || e.message)}</div>`;
+  };
   $('#btn-google').onclick = () => nuvem.entrarComGoogle().catch(erro);
-  $('#btn-entrar').onclick = () =>
-    nuvem.entrarComEmail($('#in-email').value, $('#in-senha').value, false).catch(erro);
-  $('#btn-criar').onclick = () =>
-    nuvem.entrarComEmail($('#in-email').value, $('#in-senha').value, true).catch(erro);
 }
 
 // ---------------------------------------------------------------- painel
@@ -575,6 +582,39 @@ function desenharPlano() {
 
 // ---------------------------------------------------------------- perfil
 
+/**
+ * Sem isto, quem entra em modo local fica preso nele: a tela de abertura
+ * é a única com botão de login, e ela não aparece mais depois da primeira vez.
+ */
+function cartaoDeConta() {
+  const e = est.estado;
+  const logado = nuvem.nuvemAtiva() && e.uid && e.uid !== 'local';
+
+  if (logado) {
+    return `<div class="cartao">
+      <h3>Conta</h3>
+      <p class="fraco">Conectado. Seu histórico sincroniza entre celular e computador.</p>
+      <button class="secundario" id="btn-sair-conta">Sair da conta</button>
+    </div>`;
+  }
+
+  if (MODO_LOCAL) {
+    return `<div class="cartao">
+      <h3>Conta</h3>
+      <p class="fraco">Modo local ligado em <code>js/config.js</code>. Seus dados ficam
+      só neste navegador — exporte backup de vez em quando.</p>
+    </div>`;
+  }
+
+  return `<div class="cartao">
+    <h3>Conta</h3>
+    <p class="fraco">${quedaParaLocal
+      ? 'Não consegui falar com o servidor de login. Você está estudando em modo local: os dados ficam neste navegador até você entrar.'
+      : 'Você está em modo local. Entrando na conta, o histórico passa a sincronizar entre aparelhos e sobrevive a formatar o celular.'}</p>
+    <button class="primario" id="btn-ir-login">Entrar na minha conta</button>
+  </div>`;
+}
+
 function desenharPerfil() {
   const e = est.estado;
   const lista = cursos?.cursos || [];
@@ -605,6 +645,8 @@ function desenharPerfil() {
       <label for="in-meta">Sessões por semana</label>
       <input id="in-meta" type="number" min="1" max="21" value="${e.metaSemanal.sessoes}" inputmode="numeric">
     </div>
+
+    ${cartaoDeConta()}
 
     <div class="cartao">
       <h3>Seus dados</h3>
@@ -656,6 +698,13 @@ function desenharPerfil() {
     status.textContent = 'Pronto. O app agora abre sem internet.';
   };
   if ($('#btn-sair')) $('#btn-sair').onclick = () => nuvem.sair().then(() => location.reload());
+  if ($('#btn-sair-conta')) $('#btn-sair-conta').onclick = () => nuvem.sair().then(() => location.reload());
+  if ($('#btn-ir-login')) $('#btn-ir-login').onclick = () => {
+    // Se o SDK falhou nesta sessão, ir para a tela de login não adianta:
+    // ela renderiza a versão local. Recarregar é o que dá nova chance.
+    if (quedaParaLocal) location.reload();
+    else { ir('entrar'); desenharEntrar(); }
+  };
 }
 
 // ---------------------------------------------------------------- teclado
@@ -744,14 +793,20 @@ async function principal() {
     return;
   }
 
-  const conectou = await nuvem.observarUsuario(async (usuario) => {
-    if (!usuario) { ir('entrar'); desenharEntrar(); return; }
+  const conectou = await nuvem.observarUsuario(async (usuario, recusa) => {
+    if (!usuario) {
+      ir('entrar');
+      desenharEntrar();
+      if (recusa) $('#entrar-erro').innerHTML = `<div class="erro-caixa">${escapar(recusa.message)}</div>`;
+      return;
+    }
     await est.puxarDaNuvem(usuario.uid);
     await abrirApp();
   });
 
   // O SDK não veio: segue em modo local para o app não ficar em branco.
   if (!conectou) {
+    quedaParaLocal = true;
     if (est.estado.uid) { await est.puxarDaNuvem(est.estado.uid); await abrirApp(); }
     else { ir('entrar'); desenharEntrar(); }
   }
