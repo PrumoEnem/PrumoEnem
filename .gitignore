@@ -1,0 +1,9 @@
+# Microdados do INEP: pesados e recriáveis. Só o resultado da mesclagem
+# (dados/questoes-*.json) precisa ir para o repositório.
+microdados/
+*.csv
+.enem-tmp/
+
+node_modules/
+*.tgz
+.DS_Store

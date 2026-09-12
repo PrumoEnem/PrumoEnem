@@ -99,6 +99,15 @@ export async function sair() {
   await sdk.signOut(auth);
 }
 
+/**
+ * Token de identidade do usuário, para o Worker saber quem está chamando.
+ * Sem isso qualquer um que descobrisse a URL do Worker gastaria os créditos.
+ */
+export async function tokenAtual() {
+  if (!nuvemAtiva() || !auth?.currentUser) return null;
+  return auth.currentUser.getIdToken();
+}
+
 export async function lerPerfil(uid) {
   if (!nuvemAtiva()) return null;
   await iniciar();

@@ -7,8 +7,35 @@
  */
 
 import { URL_WORKER } from './config.js';
+import { tokenAtual, nuvemAtiva } from './nuvem.js';
 
 export const iaDisponivel = () => !!URL_WORKER;
+
+/** A IA exige conta: é ela que impede um estranho de gastar seus créditos. */
+export const iaPrecisaLogin = () => !!URL_WORKER && !nuvemAtiva();
+
+async function pedir(rota, corpo) {
+  const token = await tokenAtual();
+  if (!token) {
+    const erro = new Error('Entre na sua conta para usar a IA.');
+    erro.precisaLogin = true;
+    throw erro;
+  }
+
+  const resposta = await fetch(`${URL_WORKER}${rota}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(corpo),
+  });
+
+  let dados = null;
+  try { dados = await resposta.json(); } catch { /* resposta sem corpo */ }
+
+  if (!resposta.ok) {
+    throw new Error(dados?.erro || `O servidor da IA respondeu ${resposta.status}.`);
+  }
+  return dados;
+}
 
 const SEM_CHAVE = {
   explicacoes: [],
@@ -32,26 +59,11 @@ export async function explicarErros(erros, area) {
     })),
   };
 
-  const resposta = await fetch(`${URL_WORKER}/explicar`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-
-  if (!resposta.ok) {
-    throw new Error(`O servidor da IA respondeu ${resposta.status}. Tente de novo mais tarde.`);
-  }
-  return resposta.json();
+  return pedir('/explicar', payload);
 }
 
 export async function gerarResumo(tema, area) {
   if (!iaDisponivel()) return null;
-  const resposta = await fetch(`${URL_WORKER}/resumo`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tema, area }),
-  });
-  if (!resposta.ok) throw new Error(`O servidor da IA respondeu ${resposta.status}.`);
-  const dados = await resposta.json();
+  const dados = await pedir('/resumo', { tema, area });
   return dados.resumo;
 }

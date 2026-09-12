@@ -25,6 +25,8 @@ Finder/Explorer não funciona, porque módulos ES exigem HTTP.
 | 2.757 questões do ENEM 2009–2023 | pronto |
 | Pesos reais do SiSU 2026 da UTFPR (12 cursos) | pronto |
 | 54 itens de vocabulário para redação | pronto |
+| Aba de redação: notas das 5 competências e cronômetro | pronto |
+| Sessão com navegação livre, 3 tamanhos e 3 modos de tempo | pronto |
 | Cálculo de proficiência e simulação do SiSU | pronto |
 | Sessão de 9 questões + vocabulário, 3 min cada | pronto |
 | Ofensiva, meta semanal, flashcards com revisão espaçada | pronto |
@@ -158,46 +160,166 @@ O app detecta e cai para modo local sozinho, com aviso na tela de entrada.
 Você continua estudando; quando a conexão voltar e você entrar na conta, o
 histórico sobe junto. Nenhuma sessão se perde por causa de rede.
 
-## Passo 4 — IA (opcional)
+## Passo 4 — IA (Cloudflare Worker)
 
-A chave da API não pode ficar no navegador. O Worker existe só para isso.
+A IA faz duas coisas: explica cada questão que você errou e gera resumos sob
+demanda na aba Revisão. As duas passam pelo Worker.
+
+### Por que o Worker existe
+
+A chave da API não pode ficar no navegador — qualquer um abre o DevTools e
+copia. O Worker guarda a chave e só responde a quem apresenta um token válido
+do Firebase. Sem essa verificação, quem descobrisse a URL gastaria seus
+créditos à vontade.
+
+### 4.1 — Escolher o provedor de IA
+
+O Worker fala com três provedores. Troque `PROVEDOR` no `wrangler.toml`.
+
+| | Custo | Cota | Cartão |
+|---|---|---|---|
+| `gemini` | grátis | 1.500 chamadas/dia | não |
+| `cloudflare` | grátis | ~20 chamadas/dia | não |
+| `anthropic` | ~2 centavos de dólar por sessão | sem limite prático | sim, depois do crédito inicial |
+
+**Gemini é a escolha padrão** e a que eu recomendo para começar. Mil e
+quinhentas chamadas por dia cobrem a escola inteira, não pede cartão e não
+expira. Uma ressalva honesta: no nível grátis o Google pode usar o que você
+manda para treinar os modelos dele. Como o conteúdo são questões públicas do
+ENEM, isso não me preocupa aqui — mas você precisa saber.
+
+```bash
+# Pegue a chave em aistudio.google.com (é só entrar com a conta Google)
+npx wrangler secret put GEMINI_API_KEY
+```
+
+**Cloudflare** roda dentro do próprio Worker, sem segunda conta e sem chave
+nenhuma. O limite é a cota: 10 mil neurônios por dia, e uma resposta média
+consome de 400 a 600 — ou seja, de 15 a 25 chamadas diárias no total, somando
+todos os usuários. Serve para você testar sozinho, não para a turma.
+
+Para usar, descomente o bloco `[ai]` no `wrangler.toml` e ponha
+`PROVEDOR = "cloudflare"`. Modelos abertos explicam exatas pior que o Gemini
+ou o Claude — dá para sentir a diferença numa questão de função.
+
+**Anthropic** é a melhor qualidade de explicação, especialmente em
+matemática. O Claude Sonnet 5 custa $2 por milhão de tokens de entrada e $10
+de saída; uma sessão com quatro erros gasta perto de 3.500 de entrada e 1.200
+de saída, o que dá **cerca de 2 centavos de dólar por sessão**, uns 10
+centavos de real. Contas novas recebem crédito inicial sem cartão.
+
+```bash
+npx wrangler secret put ANTHROPIC_API_KEY
+```
+
+Trocar de provedor depois é mudar uma linha e rodar `wrangler deploy` de novo.
+O app não sabe qual está ligado — ele só pede explicação e recebe texto.
+
+### 4.2 — Publicar o Worker
 
 ```bash
 cd worker
-npm install -g wrangler
-wrangler init --yes
-# aponte o main do wrangler.toml para worker.js
-wrangler secret put ANTHROPIC_API_KEY
-wrangler deploy
+npx wrangler login
+npx wrangler secret put ANTHROPIC_API_KEY   # cole a chave quando pedir
+npx wrangler deploy
 ```
 
-Copie a URL e cole em `URL_WORKER` no `js/config.js`.
+Antes do deploy, abra o `wrangler.toml` e troque `SEU_USUARIO.github.io` em
+`ORIGENS` pelo endereço real do seu site. Só as origens listadas conseguem
+chamar o Worker.
+
+O deploy imprime a URL, algo como `https://prumoenem-ia.SEU-SUBDOMINIO.workers.dev`.
+
+### 4.3 — Ligar no app
+
+Cole a URL em `URL_WORKER` no `js/config.js`. Pronto.
 
 O plano grátis do Cloudflare não pede cartão e dá 100 mil requisições por dia.
-O app faz **uma** chamada por sessão, com todos os erros juntos — mais barato,
-mais rápido, e o modelo enxerga o padrão dos erros em vez de uma questão isolada.
+O app faz **uma** chamada por sessão, com todos os erros juntos.
+
+### O que o Worker recusa
+
+- Requisição sem token do Firebase → 401
+- Token expirado, de outro projeto, com assinatura adulterada ou com
+  `alg: none` → 401
+- Conta fora de `@escola.pr.gov.br` → 403
+- Origem fora da lista de `ORIGENS` → 403
+- Mais de 12 questões por chamada → 400
+
+A validação confere a assinatura contra as chaves públicas do Google, e não
+apenas lê o conteúdo do token. Está coberta por testes em `teste-worker.mjs`,
+incluindo os ataques acima.
+
+### Se a IA estiver desligada
+
+O app funciona igual: você só vê o gabarito em vez da explicação, e o
+flashcard nasce genérico. A aba Resumos avisa e desabilita o campo.
 
 ## Passo 5 — Calibrar a dificuldade (opcional, mas vale)
 
-Enquanto não fizer isso, a sessão sorteia 9 questões quaisquer e a proficiência
-é estimada por proporção de acertos. Funciona, mas ignora *quais* questões você
-errou — que é justamente o que a TRI acrescenta.
+Enquanto não fizer isso, a sessão sorteia 9 questões quaisquer e a
+proficiência é estimada por proporção de acertos. Funciona, mas ignora
+*quais* questões você errou — que é justamente o que a TRI acrescenta.
 
-1. Baixe os microdados em
-   [gov.br/inep → microdados → ENEM](https://www.gov.br/inep/pt-br/acesso-a-informacao/dados-abertos/microdados/enem)
-2. Extraia os `ITENS_PROVA_<ano>.csv`
-3. ```bash
-   node scripts/mesclar-tri.mjs ITENS_PROVA_2020.csv ITENS_PROVA_2021.csv
-   ```
+### Onde baixar
 
-O INEP passou a publicar os parâmetros a partir do ENEM 2020, liberando as
-demais edições aos poucos. Cada ano que você mesclar ativa o 3/3/3 real e o
-cálculo de nota por TRI para aquelas questões.
+[gov.br/inep](https://www.gov.br/inep/pt-br/acesso-a-informacao/dados-abertos/microdados/enem)
+→ Dados Abertos → Microdados → ENEM. Baixe **2020, 2021, 2022 e 2023**.
 
-Se a taxa de casamento vier muito baixa, confira `COR_CADERNO` no script: cada
-cor de caderno embaralha as questões em ordem diferente.
+Anos anteriores a 2020 não têm os parâmetros publicados, e anos posteriores a
+2023 não existem no banco de questões — o CSV de 2025 casa com zero questões.
 
----
+### O que extrair
+
+Cada ZIP tem mais de um gigabyte, quase tudo respostas de candidatos que não
+interessam aqui. Do ZIP, extraia **um arquivo só**:
+
+```
+DADOS/ITENS_PROVA_<ano>.csv
+```
+
+São uns poucos megabytes cada.
+
+### Onde colocar
+
+Na pasta `microdados/`, ao lado da pasta do site:
+
+```
+PrumoEnem/
+├── microdados/          ← os CSV vão aqui
+│   ├── ITENS_PROVA_2020.csv
+│   ├── ITENS_PROVA_2021.csv
+│   ├── ITENS_PROVA_2022.csv
+│   └── ITENS_PROVA_2023.csv
+├── index.html
+├── dados/
+└── scripts/
+```
+
+A pasta já está no `.gitignore`, então os CSV não vão para o repositório —
+só o resultado da mesclagem, que fica dentro dos `dados/questoes-*.json`.
+
+### Rodar
+
+De dentro da pasta do site:
+
+```bash
+node scripts/mesclar-tri.mjs
+```
+
+Sem argumento nenhum ele procura em `../microdados/` e pega todos os
+`ITENS_PROVA_*.csv` que achar. Também aceita caminhos avulsos:
+
+```bash
+node scripts/mesclar-tri.mjs ../microdados/ITENS_PROVA_2023.csv
+```
+
+Ele imprime quantas questões calibrou por área e por ano. Com os quatro anos,
+espere algo em torno de 700 de 2.718 — o que já liga o 3/3/3 real para uma
+fatia grande do banco.
+
+Se a taxa vier perto de zero, confira `COR_PREFERIDA` no topo do script: cada
+cor de caderno embaralha as mesmas questões em ordem diferente.
 
 ## Decisões que talvez não sejam óbvias
 

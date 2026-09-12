@@ -33,6 +33,7 @@
   --acerto: #52c793;
   --erro: #ec6f83;
 
+  --alt-nav: 64px;
   --r-p: 8px;
   --r-m: 14px;
   --r-g: 20px;
@@ -66,7 +67,7 @@ body::before {
   background: radial-gradient(120% 60% at 50% 0%, #1b2133 0%, var(--fundo) 62%);
 }
 
-body { padding-bottom: calc(74px + env(safe-area-inset-bottom)); }
+body { padding-bottom: calc(var(--alt-nav) + 16px + env(safe-area-inset-bottom)); }
 
 h1, h2, h3 {
   font-family: var(--display);
@@ -240,13 +241,26 @@ button[disabled]:active { transform: none; }
 .alternativa.errada { border-color: var(--erro); background: rgba(236, 111, 131, .12); }
 .alternativa.errada .letra { background: var(--erro); color: #2a0810; }
 
+/**
+ * Fixo, não sticky. Sendo o último filho do container, um sticky nunca gruda:
+ * ele já está no fim do pai e não pode passar dele. O resultado era uma fresta
+ * entre os botões e a barra de navegação, com o enunciado aparecendo no meio.
+ * A altura real é medida em JS e devolvida em --alt-rodape, para o conteúdo
+ * reservar exatamente o espaço necessário.
+ */
 .rodape-sessao {
-  position: sticky; bottom: calc(74px + env(safe-area-inset-bottom));
-  padding: 16px 0 10px; margin-top: 10px;
-  /* Fundo sólido: com gradiente o enunciado vazava por baixo do botão. */
+  position: fixed; z-index: 6;
+  left: 0; right: 0; margin: 0 auto;
+  bottom: calc(var(--alt-nav) + env(safe-area-inset-bottom));
+  max-width: 696px; padding: 14px 18px 16px;
   background: var(--fundo);
-  box-shadow: 0 -16px 20px -8px var(--fundo);
+  box-shadow: 0 -18px 22px -6px var(--fundo);
 }
+
+/* Sem isto, numa questão curta o "Confirmar" para no meio da tela com um
+   vão morto embaixo: sticky não empurra nada, ele só gruda. A coluna em
+   flex com min-height joga o rodapé para a base. */
+#sessao-conteudo { padding-bottom: calc(var(--alt-rodape, 150px) + 18px); }
 
 /* ---------- Resultado ---------- */
 
@@ -295,14 +309,14 @@ input:focus, select:focus { outline: none; border-color: var(--azul); box-shadow
 
 .nav {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
-  display: flex; background: rgba(24, 28, 42, .93);
-  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  border-top: 1px solid var(--linha-fraca);
+  display: flex; background: #1a1f2e;
+  border-top: 1px solid var(--linha);
+  box-shadow: 0 -8px 16px -8px rgba(0, 0, 0, .55);
   padding-bottom: env(safe-area-inset-bottom);
 }
 .nav button {
   flex: 1; border: none; border-radius: 0; background: none;
-  padding: 11px 2px 9px; min-height: 64px;
+  padding: 11px 2px 9px; min-height: var(--alt-nav);
   display: flex; flex-direction: column; align-items: center; gap: 5px;
   font-family: var(--display); font-size: 10.5px; font-weight: 500; color: var(--apagado);
   position: relative;
@@ -393,6 +407,8 @@ input:focus, select:focus { outline: none; border-color: var(--azul); box-shadow
   }
 
   .tela { margin-left: 232px; max-width: 1060px; padding: 36px 42px 48px; }
+  /* Barra virou lateral: o rodapé encosta na base e acompanha a margem. */
+  .rodape-sessao { left: 232px; right: 0; bottom: 0; max-width: 1060px; padding-left: 42px; padding-right: 42px; }
   h1 { font-size: 31px; margin-bottom: 24px; }
 
   /* Painel: a escala ocupa a largura toda, o resto pareia. */
@@ -435,10 +451,11 @@ input:focus, select:focus { outline: none; border-color: var(--azul); box-shadow
   }
   .rodape-sessao {
     grid-column: 2; grid-row: 4;
-    position: sticky; top: 104px;
+    position: static; max-width: none;
     padding: 4px 0 0; margin-top: 14px;
     background: none; box-shadow: none;
   }
+  #sessao-conteudo { padding-bottom: 0; }
   .sessao-info { font-size: 14.5px; }
 
   /* Resultado: placar largo, revisões em coluna legível. */
@@ -449,6 +466,14 @@ input:focus, select:focus { outline: none; border-color: var(--azul); box-shadow
 @media (min-width: 1400px) {
   .tela { margin-left: 232px; margin-right: 0; max-width: 1180px; }
 }
+
+/* Imagem que falhou ao carregar. */
+.img-falhou {
+  display: block; padding: 14px; border-radius: var(--r-p);
+  border: 1px dashed var(--linha); background: var(--superficie);
+  color: var(--fraco); font-size: 13.5px; text-align: center;
+}
+.img-falhou a { display: inline-block; margin-top: 6px; }
 
 /* Markdown vindo do enunciado. */
 .enunciado strong { font-weight: 650; color: var(--texto); }
@@ -461,3 +486,96 @@ code {
   padding: 2px 6px; border-radius: 5px;
   overflow-wrap: anywhere;
 }
+
+/* ---------- Escolhas da sessão ---------- */
+
+.opcoes { display: flex; flex-direction: column; gap: 8px; }
+.opcao {
+  text-align: left; padding: 13px 15px; width: 100%;
+  background: var(--fundo-alto); border: 1px solid var(--linha-fraca);
+  border-radius: var(--r-m); min-height: 0;
+}
+.opcao b { display: block; font-family: var(--display); font-size: 15px; font-weight: 600; letter-spacing: -0.012em; }
+.opcao span { display: block; font-family: var(--corpo); font-size: 13px; font-weight: 400; color: var(--fraco); margin-top: 3px; line-height: 1.45; }
+.opcao.ativa { border-color: var(--azul); background: var(--azul-fundo); }
+.opcao.ativa b { color: var(--azul-forte); }
+
+/* ---------- Grade de questões ---------- */
+
+.grade { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.celula {
+  width: 34px; min-width: 34px; min-height: 34px; padding: 0;
+  border-radius: var(--r-p); font-size: 13px; font-weight: 600;
+  background: var(--fundo-alto); border: 1px solid var(--linha-fraca);
+  color: var(--fraco); display: grid; place-items: center;
+}
+.celula.feita { background: var(--elevado); color: var(--texto); border-color: var(--linha); }
+.celula.rever { border-color: var(--ambar); color: var(--ambar); }
+.celula.atual { border-color: var(--azul-forte); color: var(--azul-forte); box-shadow: 0 0 0 2px rgba(98,174,248,.25); }
+
+.cronometro.estourado { color: var(--erro); }
+
+/* Na sessão os botões do rodapé dividem espaço; sem isto ficam altos demais. */
+.rodape-sessao .linha-botoes button { font-size: 14.5px; padding: 12px 8px; }
+
+/* ---------- Redação ---------- */
+
+.competencia { margin-bottom: 4px; }
+.competencia label { margin-top: 14px; color: var(--texto); font-size: 14px; font-weight: 500; }
+.total-redacao {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--linha-fraca);
+}
+.total-redacao span { color: var(--fraco); font-size: 14px; }
+.total-redacao b { font-family: var(--display); font-size: 30px; color: var(--azul-forte); letter-spacing: -0.03em; }
+
+.em-breve { opacity: .72; }
+.em-breve ul { margin: 0; padding-left: 18px; }
+.em-breve li { margin-bottom: 6px; }
+
+#relogio-embutido:not(:empty) {
+  margin-top: 14px; border: 1px solid var(--linha);
+  border-radius: var(--r-m); background: var(--fundo-alto);
+}
+
+/* ---------- Cabeçalho do perfil ---------- */
+
+.perfil-topo { display: flex; align-items: center; gap: 14px; }
+.avatar {
+  width: 52px; height: 52px; flex-shrink: 0; border-radius: 50%;
+  background: var(--azul-fundo); border: 1px solid var(--azul);
+  color: var(--azul-forte); display: grid; place-items: center;
+  font-family: var(--display); font-size: 19px; font-weight: 600;
+}
+.perfil-identidade { min-width: 0; }
+.perfil-identidade b { display: block; font-family: var(--display); font-size: 18px; letter-spacing: -0.02em; }
+.perfil-identidade .fraco { display: block; font-size: 13px; overflow-wrap: anywhere; }
+.etiqueta-plano {
+  display: inline-block; margin-top: 5px; padding: 2px 9px;
+  border-radius: 999px; font-family: var(--display); font-size: 11.5px; font-weight: 600;
+  background: var(--elevado); color: var(--fraco); border: 1px solid var(--linha);
+}
+
+/* Seis abas: a etiqueta precisa encolher para caber em tela estreita. */
+@media (max-width: 400px) {
+  .nav button { font-size: 9.5px; gap: 4px; padding: 10px 1px 8px; }
+  .nav button svg { width: 19px; height: 19px; }
+}
+
+/* ---------- Abas internas ---------- */
+
+.abas { display: flex; gap: 6px; margin-bottom: 18px; border-bottom: 1px solid var(--linha-fraca); }
+.abas button {
+  width: auto; flex: 1; min-height: 0; padding: 11px 8px 12px;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  border-radius: 0; color: var(--fraco); font-size: 14.5px; font-weight: 550;
+}
+.abas button.ativa { color: var(--azul-forte); border-bottom-color: var(--azul-forte); }
+.abas button i {
+  font-style: normal; font-size: 11.5px; padding: 1px 6px; margin-left: 4px;
+  border-radius: 999px; background: var(--elevado); color: var(--fraco);
+}
+.abas button.ativa i { background: var(--azul-fundo); color: var(--azul-forte); }
+
+.resumo-texto { font-size: 15px; line-height: 1.65; white-space: pre-wrap; color: #dfe2f0; }
+.resumo-texto strong { font-weight: 650; color: var(--texto); }

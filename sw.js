@@ -1,6 +1,6 @@
 /* sw.js — cache-first para o app, stale-while-revalidate para os dados. */
 
-const VERSAO = 'v4';
+const VERSAO = 'v7';
 const ESTATICO = `estatico-${VERSAO}`;
 const DADOS = `dados-${VERSAO}`;
 
@@ -9,6 +9,7 @@ const ESSENCIAIS = [
   './css/app.css',
   './js/app.js', './js/tri.js', './js/motor.js', './js/srs.js',
   './js/dados.js', './js/estado.js', './js/nuvem.js', './js/ia.js', './js/config.js',
+  './js/redacao.js',
   './dados/cursos.json', './dados/vocabulario.json',
   './favicon.svg', './icone-192.png', './apple-touch-icon.png',
   './fontes/space-grotesk-latin-wght-normal.woff2',

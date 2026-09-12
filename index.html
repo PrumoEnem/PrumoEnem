@@ -36,7 +36,7 @@
 <section class="tela" id="tela-painel">
   <div class="topo">
     <div>
-      <div class="saudacao">Seu alvo</div>
+      <div class="saudacao" id="painel-saudacao">Seu alvo</div>
       <div class="nome" id="painel-curso">—</div>
     </div>
     <div class="chama" id="painel-ofensiva"><span>0</span> dias</div>
@@ -58,6 +58,12 @@
 <section class="tela" id="tela-cartoes">
   <h1>Revisão</h1>
   <div id="cartoes-conteudo"></div>
+</section>
+
+<!-- ===== Redação ===== -->
+<section class="tela" id="tela-redacao">
+  <h1>Redação</h1>
+  <div id="redacao-conteudo"></div>
 </section>
 
 <!-- ===== Plano ===== -->
@@ -92,6 +98,10 @@
   <button data-ir="cartoes" aria-label="Revisão">
     <svg viewBox="0 0 24 24"><rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h14v12"/></svg>
     <span>Revisão</span>
+  </button>
+  <button data-ir="redacao" aria-label="Redação">
+    <svg viewBox="0 0 24 24"><path d="M4 20h16M6 16l2-6 8-5 3 3-5 8-8 2z"/></svg>
+    <span>Redação</span>
   </button>
   <button data-ir="plano" aria-label="Plano">
     <svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>

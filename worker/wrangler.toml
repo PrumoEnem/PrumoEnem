@@ -1,0 +1,36 @@
+name = "prumoenem-ia"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# Descomente só se usar PROVEDOR = "cloudflare".
+# [ai]
+# binding = "AI"
+
+[vars]
+# ---------------------------------------------------------------------------
+# Qual IA usar: "gemini" (grátis), "cloudflare" (grátis, pouca cota)
+# ou "anthropic" (pago, melhor qualidade).
+# ---------------------------------------------------------------------------
+PROVEDOR = "gemini"
+
+# Deixe vazio para usar o padrão de cada provedor:
+#   gemini      → gemini-2.5-flash
+#   cloudflare  → @cf/meta/llama-3.1-8b-instruct
+#   anthropic   → claude-sonnet-5
+MODELO = ""
+
+# Projeto do Firebase — usado para validar o token de quem chama.
+FIREBASE_PROJECT_ID = "prumoenem-6a949"
+
+# Só contas deste domínio podem usar a IA. Vazio = qualquer conta logada.
+DOMINIO_PERMITIDO = "escola.pr.gov.br"
+
+# Origens autorizadas. Troque pelo endereço do seu site publicado.
+ORIGENS = "http://localhost:8000,http://127.0.0.1:8000,https://SEU_USUARIO.github.io"
+
+# ---------------------------------------------------------------------------
+# As chaves NÃO vão aqui. Conforme o provedor escolhido:
+#   npx wrangler secret put GEMINI_API_KEY
+#   npx wrangler secret put ANTHROPIC_API_KEY
+#   (cloudflare não precisa de chave)
+# ---------------------------------------------------------------------------

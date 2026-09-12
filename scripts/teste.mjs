@@ -15,7 +15,7 @@ for (const a of ['matematica','natureza','humanas','linguagens'])
 
 console.log('=== Integridade dos dados ===');
 const total = Object.values(banco).reduce((s,q)=>s+q.length,0);
-ok('2757 questões carregadas', total === 2757, `${total}`);
+ok('2718 questões carregadas', total === 2718, `${total}`);
 const semGabarito = Object.values(banco).flat().filter(q => !q.alternativas.some(a=>a.letra===q.gabarito));
 ok('todo gabarito aponta para uma alternativa existente', semGabarito.length===0, `${semGabarito.length} problemas`);
 const vazias = Object.values(banco).flat().filter(q => !q.enunciado || q.alternativas.length<4);

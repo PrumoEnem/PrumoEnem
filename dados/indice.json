@@ -1,8 +1,8 @@
 {
-  "total": 2757,
+  "total": 2718,
   "areas": {
     "matematica": {
-      "quantidade": 642,
+      "quantidade": 612,
       "arquivoKb": 642,
       "anos": [
         2009,
@@ -23,7 +23,7 @@
       ]
     },
     "natureza": {
-      "quantidade": 619,
+      "quantidade": 612,
       "arquivoKb": 711,
       "anos": [
         2009,
@@ -44,7 +44,7 @@
       ]
     },
     "humanas": {
-      "quantidade": 809,
+      "quantidade": 807,
       "arquivoKb": 1047,
       "anos": [
         2009,

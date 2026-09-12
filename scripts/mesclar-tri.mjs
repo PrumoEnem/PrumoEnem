@@ -1,71 +1,131 @@
 /**
  * mesclar-tri.mjs — injeta os parâmetros de TRI do INEP nas questões.
  *
- * O enem.dev não traz os parâmetros a, b e c. Quem traz é o INEP, nas
- * tabelas ITENS_PROVA dos microdados. Sem eles, a sessão 3/3/3 cai para
- * sorteio simples: funciona, mas não calibra.
+ * O enem.dev não traz a, b e c. Quem traz é o INEP, nas tabelas ITENS_PROVA
+ * dos microdados. Sem eles, a sessão 3/3/3 cai para sorteio e a proficiência
+ * sai por proporção de acertos.
  *
- * Como usar:
- *   1. Baixe os microdados em
- *      gov.br/inep/pt-br/acesso-a-informacao/dados-abertos/microdados/enem
- *   2. Extraia os arquivos ITENS_PROVA_<ano>.csv
- *   3. node scripts/mesclar-tri.mjs ITENS_PROVA_2020.csv ITENS_PROVA_2021.csv
+ *   node scripts/mesclar-tri.mjs dados/ITENS_PROVA_2021.csv dados/ITENS_PROVA_2022.csv
  *
- * Atenção ao caderno: cada cor tem ordem diferente das mesmas questões.
- * O script usa CO_POSICAO do caderno azul, que é a ordem que o enem.dev
- * segue. Se a taxa de casamento vier muito baixa, troque TP_LINGUA ou a
- * cor em COR_CADERNO abaixo.
+ * O ano sai do nome do arquivo — os CSV do INEP não têm coluna de ano.
+ * O banco de questões cobre 2009 a 2023; arquivo de ano fora disso não casa
+ * com nada e o script avisa.
+ *
+ * Sobre a cor do caderno: cada cor embaralha as mesmas questões em ordem
+ * diferente. O enem.dev segue o caderno AZUL. Se a taxa de casamento vier
+ * baixa, troque COR_PREFERIDA.
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, statSync, readdirSync } from 'fs';
+import { basename, join } from 'path';
 
-const COR_CADERNO = 'AZUL';
+const COR_PREFERIDA = 'AZUL';
 const AREAS = ['matematica', 'natureza', 'humanas', 'linguagens'];
+
+// SG_AREA do INEP -> área nossa. Serve de conferência do casamento.
+const AREA_INEP = { MT: 'matematica', CN: 'natureza', CH: 'humanas', LC: 'linguagens' };
 
 function lerCSV(caminho) {
   const texto = readFileSync(caminho, 'latin1');
-  const linhas = texto.split(/\r?\n/).filter(Boolean);
+  const linhas = texto.split(/\r?\n/).filter((l) => l.trim());
   const sep = linhas[0].includes(';') ? ';' : ',';
-  const cabecalho = linhas[0].split(sep).map((c) => c.trim().replace(/^"|"$/g, ''));
+  const cab = linhas[0].split(sep).map((c) => c.trim().replace(/^"|"$/g, ''));
   return linhas.slice(1).map((linha) => {
     const campos = linha.split(sep);
-    return Object.fromEntries(cabecalho.map((c, i) => [c, (campos[i] ?? '').trim().replace(/^"|"$/g, '')]));
+    return Object.fromEntries(cab.map((c, i) => [c, (campos[i] ?? '').trim().replace(/^"|"$/g, '')]));
   });
 }
 
 const numero = (v) => {
-  const n = Number(String(v).replace(',', '.'));
-  return Number.isFinite(n) ? n : null;
+  const n = Number(String(v ?? '').replace(',', '.'));
+  return Number.isFinite(n) && String(v ?? '').trim() !== '' ? n : null;
 };
 
-const arquivos = process.argv.slice(2);
+// Aceita arquivos soltos ou uma pasta inteira — é mais difícil errar assim.
+const argumentos = process.argv.slice(2);
+const alvos = argumentos.length ? argumentos : ['../microdados'];
+
+const arquivos = [];
+for (const alvo of alvos) {
+  if (!existsSync(alvo)) { console.error(`Não encontrei: ${alvo}`); continue; }
+  if (statSync(alvo).isDirectory()) {
+    const achados = readdirSync(alvo)
+      .filter((f) => /^ITENS_PROVA.*\.csv$/i.test(f))
+      .map((f) => join(alvo, f));
+    if (!achados.length) console.error(`Nenhum ITENS_PROVA_*.csv em ${alvo}`);
+    arquivos.push(...achados);
+  } else {
+    arquivos.push(alvo);
+  }
+}
+
 if (!arquivos.length) {
-  console.error('Informe ao menos um CSV. Exemplo: node scripts/mesclar-tri.mjs ITENS_PROVA_2020.csv');
+  console.error(`
+Uso:
+  node scripts/mesclar-tri.mjs                          (lê ../microdados/)
+  node scripts/mesclar-tri.mjs ../microdados            (uma pasta)
+  node scripts/mesclar-tri.mjs caminho/ITENS_PROVA_2023.csv [...]
+
+Rode de dentro da pasta do site, porque ele grava em dados/questoes-*.json.
+Baixe os microdados em:
+  gov.br/inep → Dados Abertos → Microdados → ENEM
+Do ZIP, só interessa DADOS/ITENS_PROVA_<ano>.csv. O banco cobre 2009 a 2023.`);
   process.exit(1);
 }
 
-// Monta o índice ano+posição -> parâmetros.
-const parametros = new Map();
-for (const arquivo of arquivos) {
-  if (!existsSync(arquivo)) { console.error(`Não encontrei ${arquivo}`); continue; }
-  let usadas = 0;
-  for (const linha of lerCSV(arquivo)) {
-    const cor = (linha.TX_COR || '').toUpperCase();
-    if (cor && cor !== COR_CADERNO) continue;
-    const ano = numero(linha.NU_ANO ?? linha.ANO);
-    const posicao = numero(linha.CO_POSICAO ?? linha.NU_POSICAO);
-    const a = numero(linha.NU_PARAM_A);
-    const b = numero(linha.NU_PARAM_B);
-    const c = numero(linha.NU_PARAM_C);
-    if (!ano || !posicao || a === null || b === null) continue;
-    parametros.set(`${ano}-${posicao}`, { a, b, c: c ?? 0.2 });
-    usadas++;
-  }
-  console.log(`${arquivo}: ${usadas} itens com parâmetro`);
+if (!existsSync('dados/questoes-matematica.json')) {
+  console.error('Não achei dados/questoes-matematica.json — rode de dentro da pasta do site.');
+  process.exit(1);
 }
 
-// Aplica nas questões.
-let total = 0, casadas = 0;
+const parametros = new Map();
+
+for (const arquivo of arquivos) {
+  if (!existsSync(arquivo)) { console.error(`Não encontrei ${arquivo}`); continue; }
+
+  const ano = numero((basename(arquivo).match(/(19|20)\d{2}/) || [])[0]);
+  if (!ano) {
+    console.error(`Não achei o ano no nome de ${arquivo}. Renomeie para ITENS_PROVA_2021.csv.`);
+    continue;
+  }
+
+  const linhas = lerCSV(arquivo);
+  const cores = new Set(linhas.map((l) => (l.TX_COR || '').toUpperCase()).filter(Boolean));
+  // Se o caderno azul não existir nesse ano, usa a cor mais frequente.
+  let cor = COR_PREFERIDA;
+  if (cores.size && !cores.has(COR_PREFERIDA)) {
+    const contagem = {};
+    for (const l of linhas) {
+      const c = (l.TX_COR || '').toUpperCase();
+      if (c && c !== 'LEITOR TELA') contagem[c] = (contagem[c] || 0) + 1;
+    }
+    cor = Object.entries(contagem).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+    console.log(`${basename(arquivo)}: sem caderno ${COR_PREFERIDA}, usando ${cor}`);
+  }
+
+  let usadas = 0;
+  for (const l of linhas) {
+    const corLinha = (l.TX_COR || '').toUpperCase();
+    if (cor && corLinha && corLinha !== cor) continue;
+    // Item de língua estrangeira aparece duas vezes (inglês e espanhol).
+    if (l.TP_LINGUA && numero(l.TP_LINGUA) === 1) continue;
+    if (l.IN_ITEM_ABAN === '1') continue;
+
+    const posicao = numero(l.CO_POSICAO ?? l.NU_POSICAO);
+    const a = numero(l.NU_PARAM_A);
+    const b = numero(l.NU_PARAM_B);
+    const c = numero(l.NU_PARAM_C);
+    if (!posicao || a === null || b === null) continue;
+
+    parametros.set(`${ano}-${posicao}`, { a, b, c: c ?? 0.2, area: AREA_INEP[l.SG_AREA] || null });
+    usadas++;
+  }
+  console.log(`${basename(arquivo)}: ano ${ano}, ${usadas} itens com parâmetro`);
+}
+
+let total = 0, casadas = 0, areaErrada = 0;
+const porAno = {};
+
 for (const area of AREAS) {
   const caminho = `dados/questoes-${area}.json`;
   const questoes = JSON.parse(readFileSync(caminho, 'utf8'));
@@ -73,14 +133,26 @@ for (const area of AREAS) {
   for (const q of questoes) {
     total++;
     const p = parametros.get(`${q.ano}-${q.numero}`);
-    if (p) { q.tri = p; n++; casadas++; }
+    if (!p) continue;
+    // Se a área do INEP não bate com a nossa, o alinhamento de posição está
+    // errado — gravar seria pior que não gravar.
+    if (p.area && p.area !== area) { areaErrada++; continue; }
+    q.tri = { a: p.a, b: p.b, c: p.c };
+    n++; casadas++;
+    porAno[q.ano] = (porAno[q.ano] || 0) + 1;
   }
   writeFileSync(caminho, JSON.stringify(questoes));
   console.log(`${area.padEnd(11)} ${String(n).padStart(4)} de ${questoes.length} calibradas`);
 }
 
-const taxa = ((casadas / total) * 100).toFixed(1);
-console.log(`\n${casadas} de ${total} questões calibradas (${taxa}%).`);
-if (casadas && casadas / total < 0.1) {
-  console.log('Taxa baixa. Confira a cor do caderno em COR_CADERNO e o nome das colunas do CSV.');
+console.log(`\n${casadas} de ${total} questões calibradas (${((casadas / total) * 100).toFixed(1)}%).`);
+if (Object.keys(porAno).length) console.log('por ano:', porAno);
+
+if (!casadas) {
+  console.log('\nNenhuma casou. Causas comuns:');
+  console.log('  · o ano do arquivo não existe no banco (ele cobre 2009 a 2023);');
+  console.log('  · a cor do caderno não bate — ajuste COR_PREFERIDA no topo do script.');
+} else if (areaErrada > casadas * 0.1) {
+  console.log(`\nAtenção: ${areaErrada} itens foram descartados por área divergente.`);
+  console.log('Isso indica ordem de questões diferente. Tente outra cor de caderno.');
 }

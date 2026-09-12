@@ -1,7 +1,7 @@
 /** motor.js — decide o que estudar e quais questões cair na sessão. */
 
 import { classificarDificuldade } from './tri.js';
-import { AREAS } from './dados.js';
+import { AREAS, questaoUtilizavel } from './dados.js';
 
 /** Proficiência que serve de alvo. θ = 2 equivale a 700 na escala do ENEM. */
 export const THETA_ALVO = 2.0;
@@ -66,10 +66,11 @@ const embaralhar = (lista) => {
  */
 export function montarSessao(questoes, theta = 0, idsJaVistos = [], porFaixa = 3) {
   const vistos = new Set(idsJaVistos);
-  let disponiveis = questoes.filter((q) => !vistos.has(q.id));
+  const utilizaveis = questoes.filter(questaoUtilizavel);
+  let disponiveis = utilizaveis.filter((q) => !vistos.has(q.id));
 
   // Se já viu quase tudo da área, libera o banco inteiro de novo.
-  if (disponiveis.length < porFaixa * 3) disponiveis = questoes;
+  if (disponiveis.length < porFaixa * 3) disponiveis = utilizaveis;
 
   const comTri = disponiveis.filter((q) => q.tri && Number.isFinite(q.tri.b));
 
