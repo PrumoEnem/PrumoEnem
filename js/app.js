@@ -989,7 +989,7 @@ function desenharRedacao() {
       </div>
       <p class="fraco" id="aviso-branco">${preenchidas < 5 ? `${5 - preenchidas} competência(s) em branco — o total ainda não fecha.` : ''}</p>
       <p class="fraco" id="aviso-fraca">${fraca ? `Mais fraca agora: <b>${escapar(fraca.nome)}</b>. ${escapar(fraca.dica)}` : ''}</p>
-      <a class="botao secundario" href="https://redacaoparana.pr.gov.br/" target="_blank" rel="noopener"
+      <a class="botao secundario" href="https://redacao.pr.gov.br/" target="_blank" rel="noopener"
          style="margin-top:12px">Abrir o Redação Paraná</a>
     </div>
 
