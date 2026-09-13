@@ -215,6 +215,27 @@ async function pedirAoGemini(env, modelo, sistema, mensagem, maxTokens) {
   });
 }
 
+const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Tenta o mesmo modelo algumas vezes antes de desistir.
+ *
+ * 503 e 500 do Gemini são temporários — o modelo está sobrecarregado, coisa
+ * frequente no nível grátis em horário de pico. Devolver esse erro ao
+ * estudante seria transformar uma espera de dois segundos numa sessão
+ * perdida. As pausas crescem para não piorar a fila.
+ */
+async function tentarModelo(env, modelo, sistema, mensagem, maxTokens, tentativas = 3) {
+  let ultima = null;
+  for (let i = 0; i < tentativas; i++) {
+    const resposta = await pedirAoGemini(env, modelo, sistema, mensagem, maxTokens);
+    if (resposta.ok || (resposta.status !== 503 && resposta.status !== 500)) return resposta;
+    ultima = resposta;
+    if (i < tentativas - 1) await esperar(700 * (i + 1) + Math.random() * 400);
+  }
+  return ultima;
+}
+
 async function viaGemini(env, sistema, mensagem, maxTokens) {
   if (!env.GEMINI_API_KEY) {
     throw new Error('Falta a chave do Gemini. Rode: npx wrangler secret put GEMINI_API_KEY');
@@ -222,9 +243,9 @@ async function viaGemini(env, sistema, mensagem, maxTokens) {
 
   const configurado = (env.MODELO || '').trim();
   let modelo = configurado || modeloGemini || 'gemini-2.5-flash';
-  let resposta = await pedirAoGemini(env, modelo, sistema, mensagem, maxTokens);
+  let resposta = await tentarModelo(env, modelo, sistema, mensagem, maxTokens);
 
-  // 404 significa que esse nome não existe mais para esta chave. Descobre e tenta de novo.
+  // 404: esse nome não existe mais para esta chave. Descobre e tenta de novo.
   if (resposta.status === 404 && !configurado) {
     const disponiveis = await listarModelosGemini(env);
     const escolhido = escolherModeloGemini(disponiveis);
@@ -237,7 +258,18 @@ async function viaGemini(env, sistema, mensagem, maxTokens) {
     }
     modeloGemini = escolhido;
     modelo = escolhido;
-    resposta = await pedirAoGemini(env, modelo, sistema, mensagem, maxTokens);
+    resposta = await tentarModelo(env, modelo, sistema, mensagem, maxTokens);
+  }
+
+  // Ainda sobrecarregado depois das tentativas: troca de modelo.
+  // Um flash mais antigo costuma estar livre quando o novo está em fila.
+  if ((resposta.status === 503 || resposta.status === 500) && !configurado) {
+    const disponiveis = await listarModelosGemini(env);
+    const alternativa = escolherModeloGemini(disponiveis.filter((n) => n !== modelo));
+    if (alternativa) {
+      const segunda = await tentarModelo(env, alternativa, sistema, mensagem, maxTokens, 2);
+      if (segunda.ok) { modeloGemini = alternativa; resposta = segunda; }
+    }
   }
 
   if (!resposta.ok) {
@@ -245,7 +277,12 @@ async function viaGemini(env, sistema, mensagem, maxTokens) {
     if (resposta.status === 400 && detalhe.includes('API key')) {
       throw new Error('Chave do Gemini recusada. Refaça o wrangler secret put.');
     }
-    if (resposta.status === 429) throw new Error('Cota do Gemini esgotada por hoje. Ela volta amanhã.');
+    if (resposta.status === 429) {
+      throw new Error('Você atingiu o limite de chamadas por minuto do Gemini. Espere um minuto e tente de novo.');
+    }
+    if (resposta.status === 503 || resposta.status === 500) {
+      throw new Error('O Gemini está sobrecarregado agora. Isso passa em alguns minutos — tente de novo.');
+    }
     if (resposta.status === 404) {
       const disponiveis = await listarModelosGemini(env);
       throw new Error(
