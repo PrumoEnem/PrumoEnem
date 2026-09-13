@@ -26,7 +26,7 @@ FIREBASE_PROJECT_ID = "prumoenem-6a949"
 DOMINIO_PERMITIDO = "escola.pr.gov.br"
 
 # Origens autorizadas. Troque pelo endereço do seu site publicado.
-ORIGENS = "http://localhost:8000,http://127.0.0.1:8000,https://PrumoEnem.github.io"
+ORIGENS = "http://localhost:8000,http://127.0.0.1:8000,https://prumoenem.github.io"
 
 # ---------------------------------------------------------------------------
 # As chaves NÃO vão aqui. Conforme o provedor escolhido:
