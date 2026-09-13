@@ -1,5 +1,5 @@
 /**
- * worker.js — intermediário entre o PrumoENEM e a API do ClaudeIA.
+ * worker.js — intermediário entre o PrumoENEM e a API do Claude.
  *
  * Existe por dois motivos:
  *   1. A chave da API não pode ficar no navegador.
@@ -165,11 +165,46 @@ async function viaAnthropic(env, sistema, mensagem, maxTokens) {
   return dados.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
 }
 
-async function viaGemini(env, sistema, mensagem, maxTokens) {
-  const modelo = (env.MODELO || '').trim() || 'gemini-2.5-flash';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`;
+/**
+ * Nomes de modelo do Gemini têm prazo de validade: o Google desliga versões
+ * antigas e o app quebra sozinho num dia qualquer. Em vez de fixar um nome,
+ * o Worker pergunta à própria chave quais modelos ela pode usar e escolhe.
+ * O resultado fica em memória até o isolate reciclar.
+ */
+let modeloGemini = null;
 
-  const resposta = await fetch(url, {
+async function listarModelosGemini(env) {
+  const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
+    headers: { 'x-goog-api-key': env.GEMINI_API_KEY },
+  });
+  if (!r.ok) return [];
+  const d = await r.json().catch(() => ({}));
+  return (d.models || [])
+    .filter((m) => (m.supportedGenerationMethods || []).includes('generateContent'))
+    .map((m) => String(m.name || '').replace(/^models\//, ''))
+    .filter(Boolean);
+}
+
+/** Prefere o flash estável mais novo: rápido, barato e com cota generosa. */
+function escolherModeloGemini(nomes) {
+  const versao = (n) => {
+    const m = n.match(/(\d+)(?:\.(\d+))?/);
+    return m ? Number(m[1]) * 100 + Number(m[2] || 0) : 0;
+  };
+  const descartar = /(preview|exp|image|tts|live|audio|embedding|vision|learnlm|gemma)/i;
+
+  const flash = nomes.filter((n) => /flash/i.test(n) && !descartar.test(n) && !/lite/i.test(n));
+  const lite = nomes.filter((n) => /flash/i.test(n) && !descartar.test(n));
+  const qualquer = nomes.filter((n) => !descartar.test(n));
+
+  for (const grupo of [flash, lite, qualquer]) {
+    if (grupo.length) return [...grupo].sort((a, b) => versao(b) - versao(a))[0];
+  }
+  return null;
+}
+
+async function pedirAoGemini(env, modelo, sistema, mensagem, maxTokens) {
+  return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
     body: JSON.stringify({
@@ -178,21 +213,56 @@ async function viaGemini(env, sistema, mensagem, maxTokens) {
       generationConfig: { maxOutputTokens: maxTokens, temperature: 0.3 },
     }),
   });
+}
+
+async function viaGemini(env, sistema, mensagem, maxTokens) {
+  if (!env.GEMINI_API_KEY) {
+    throw new Error('Falta a chave do Gemini. Rode: npx wrangler secret put GEMINI_API_KEY');
+  }
+
+  const configurado = (env.MODELO || '').trim();
+  let modelo = configurado || modeloGemini || 'gemini-2.5-flash';
+  let resposta = await pedirAoGemini(env, modelo, sistema, mensagem, maxTokens);
+
+  // 404 significa que esse nome não existe mais para esta chave. Descobre e tenta de novo.
+  if (resposta.status === 404 && !configurado) {
+    const disponiveis = await listarModelosGemini(env);
+    const escolhido = escolherModeloGemini(disponiveis);
+    if (!escolhido) {
+      throw new Error(
+        disponiveis.length
+          ? `Nenhum modelo compatível. Sua chave tem: ${disponiveis.slice(0, 8).join(', ')}`
+          : 'Sua chave não listou nenhum modelo. Confira se ela é do Google AI Studio e está ativa.'
+      );
+    }
+    modeloGemini = escolhido;
+    modelo = escolhido;
+    resposta = await pedirAoGemini(env, modelo, sistema, mensagem, maxTokens);
+  }
 
   if (!resposta.ok) {
     const detalhe = await resposta.text().catch(() => '');
     if (resposta.status === 400 && detalhe.includes('API key')) {
       throw new Error('Chave do Gemini recusada. Refaça o wrangler secret put.');
     }
-    if (resposta.status === 429) {
-      throw new Error('Cota do Gemini esgotada por hoje. Ela volta amanhã.');
+    if (resposta.status === 429) throw new Error('Cota do Gemini esgotada por hoje. Ela volta amanhã.');
+    if (resposta.status === 404) {
+      const disponiveis = await listarModelosGemini(env);
+      throw new Error(
+        `O modelo "${modelo}" não existe para sua chave. Disponíveis: ${disponiveis.slice(0, 8).join(', ') || 'nenhum'}`
+      );
     }
     throw new Error(`O Gemini respondeu ${resposta.status}.`);
   }
 
   const dados = await resposta.json();
   const texto = dados.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join('\n');
-  if (!texto) throw new Error('O Gemini devolveu resposta vazia.');
+  if (!texto) {
+    const motivo = dados.candidates?.[0]?.finishReason;
+    throw new Error(motivo === 'MAX_TOKENS'
+      ? 'A resposta foi cortada por tamanho. Tente um tema mais específico.'
+      : 'O Gemini devolveu resposta vazia.');
+  }
   return texto;
 }
 
@@ -229,11 +299,29 @@ async function chamarIA(env, sistema, mensagem, maxTokens) {
 
 // ------------------------------------------------------------ HTTP
 
+/**
+ * O navegador manda a origem sempre em minúsculas e sem barra no fim.
+ * Comparar string crua daria 403 só porque alguém escreveu o domínio com
+ * maiúscula no wrangler.toml — erro invisível e chato de achar.
+ */
+const normalizar = (o) => (o || '').trim().toLowerCase().replace(/\/+$/, '');
+
+function listaDeOrigens(env) {
+  return (env.ORIGENS || '').split(',').map(normalizar).filter(Boolean);
+}
+
 function cabecalhosCors(origem, env) {
-  const permitidas = (env.ORIGENS || '').split(',').map((o) => o.trim()).filter(Boolean);
-  const liberada = !permitidas.length || permitidas.includes(origem);
+  /*
+   * Devolve a origem que veio, mesmo quando ela não está autorizada.
+   *
+   * A versão anterior mandava a primeira origem da lista no caso de recusa.
+   * O navegador então bloqueava a resposta e mostrava só "Failed to fetch",
+   * escondendo o 403 e a mensagem explicando o motivo. Recusar continua
+   * sendo pelo status e pelo corpo; o cabeçalho aqui só permite que o
+   * usuário consiga LER a recusa em vez de ver um erro de rede genérico.
+   */
   return {
-    'Access-Control-Allow-Origin': liberada ? (origem || '*') : permitidas[0] || '',
+    'Access-Control-Allow-Origin': origem || '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
@@ -255,8 +343,8 @@ export default {
     if (requisicao.method === 'OPTIONS') return new Response(null, { headers: cors });
     if (requisicao.method !== 'POST') return json({ erro: 'Use POST.' }, 405, cors);
 
-    const permitidas = (env.ORIGENS || '').split(',').map((o) => o.trim()).filter(Boolean);
-    if (permitidas.length && origem && !permitidas.includes(origem)) {
+    const permitidas = listaDeOrigens(env);
+    if (permitidas.length && origem && !permitidas.includes(normalizar(origem))) {
       return json({ erro: 'Origem não autorizada.' }, 403, cors);
     }
 
