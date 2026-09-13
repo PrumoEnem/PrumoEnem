@@ -1,5 +1,5 @@
 /**
- * worker.js — intermediário entre o PrumoENEM e a API do Claude.
+ * worker.js — intermediário entre o PrumoENEM e a API do ClaudeIA.
  *
  * Existe por dois motivos:
  *   1. A chave da API não pode ficar no navegador.
