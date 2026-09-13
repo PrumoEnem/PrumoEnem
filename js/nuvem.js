@@ -53,7 +53,7 @@ export async function observarUsuario(callback) {
       callback(null, new ContaNaoPermitida(u.email));
       return;
     }
-    callback(u ? { uid: u.uid, nome: u.displayName || u.email, email: u.email } : null);
+    callback(u ? { uid: u.uid, nome: u.displayName || u.email, email: u.email, foto: u.photoURL } : null);
   });
   return true;
 }

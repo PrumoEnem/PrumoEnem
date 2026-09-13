@@ -78,22 +78,58 @@ export function montarSessao(questoes, theta = 0, idsJaVistos = [], porFaixa = 3
     return { questoes: embaralhar(disponiveis).slice(0, porFaixa * 3), calibrada: false };
   }
 
-  const faixas = { facil: [], media: [], dificil: [] };
-  for (const q of comTri) faixas[classificarDificuldade(theta, q.tri)].push(q);
+  /*
+   * Faixas por posição relativa, não por distância fixa do θ.
+   *
+   * A primeira versão usava limites absolutos (b < θ-0.5 é fácil, etc.).
+   * Com os parâmetros reais do INEP isso quebra: o b mediano das questões
+   * calibradas é 1.16 e o mínimo é -1.42, então para quem começa em θ=0
+   * a faixa "fácil" fica vazia e a sessão vira nove questões difíceis.
+   *
+   * Ordenando por distância até o θ e cortando em terços, as três faixas
+   * sempre existem, e continuam se movendo junto com a proficiência:
+   * o que era difícil hoje vira médio quando você melhora.
+   */
+  const ordenadas = [...comTri].sort((x, y) => x.tri.b - y.tri.b);
+  const n = ordenadas.length;
 
-  const selecionadas = [];
-  for (const faixa of ['facil', 'media', 'dificil']) {
-    selecionadas.push(...embaralhar(faixas[faixa]).slice(0, porFaixa));
-  }
+  // Onde o candidato cai dentro dessa lista.
+  let corte = ordenadas.findIndex((q) => q.tri.b >= theta);
+  if (corte < 0) corte = n;
 
-  // Completa se alguma faixa estiver vazia (θ nos extremos da escala).
-  if (selecionadas.length < porFaixa * 3) {
-    const jaEscolhidas = new Set(selecionadas.map((q) => q.id));
-    const resto = embaralhar(comTri.filter((q) => !jaEscolhidas.has(q.id)));
-    selecionadas.push(...resto.slice(0, porFaixa * 3 - selecionadas.length));
-  }
+  // Janelas proporcionais ao banco, não a um número fixo de itens: assim as
+  // três faixas ficam realmente separadas em qualquer área e em qualquer θ.
+  const fatia = (de, ate) => ordenadas.slice(
+    Math.max(0, Math.min(n - 1, Math.round(corte + de * n))),
+    Math.max(1, Math.min(n, Math.round(corte + ate * n)))
+  );
 
-  return { questoes: selecionadas, calibrada: true };
+  const fonteFacil = fatia(-0.40, -0.12);
+  const fonteMedia = fatia(-0.07, 0.07);
+  const fonteDificil = fatia(0.12, 0.40);
+
+  const escolhidas = [];
+  const usados = new Set();
+  const pegar = (fonte, quantos) => {
+    for (const q of embaralhar(fonte)) {
+      if (escolhidas.length >= porFaixa * 3) return;
+      if (usados.has(q.id)) continue;
+      usados.add(q.id);
+      escolhidas.push(q);
+      if (--quantos <= 0) return;
+    }
+  };
+
+  pegar(fonteFacil, porFaixa);
+  pegar(fonteMedia, porFaixa);
+  pegar(fonteDificil, porFaixa);
+  // Se alguma fonte não teve itens novos suficientes, completa do resto.
+  pegar(ordenadas, porFaixa * 3 - escolhidas.length);
+
+  // Apresenta na ordem crescente de dificuldade: aquece antes de apertar.
+  escolhidas.sort((x, y) => x.tri.b - y.tri.b);
+
+  return { questoes: escolhidas, calibrada: true };
 }
 
 /**

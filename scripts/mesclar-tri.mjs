@@ -41,9 +41,11 @@ const numero = (v) => {
   return Number.isFinite(n) && String(v ?? '').trim() !== '' ? n : null;
 };
 
-// Aceita arquivos soltos ou uma pasta inteira — é mais difícil errar assim.
+// Aceita arquivos soltos ou pastas. Sem argumento, procura nos lugares
+// prováveis — assim tanto faz se você pôs os CSV dentro ou fora do site.
+const PASTAS_PADRAO = ['microdados', 'dados', '../microdados', '.'];
 const argumentos = process.argv.slice(2);
-const alvos = argumentos.length ? argumentos : ['../microdados'];
+const alvos = argumentos.length ? argumentos : PASTAS_PADRAO.filter(existsSync);
 
 const arquivos = [];
 for (const alvo of alvos) {
@@ -52,7 +54,8 @@ for (const alvo of alvos) {
     const achados = readdirSync(alvo)
       .filter((f) => /^ITENS_PROVA.*\.csv$/i.test(f))
       .map((f) => join(alvo, f));
-    if (!achados.length) console.error(`Nenhum ITENS_PROVA_*.csv em ${alvo}`);
+    // Só reclama de pasta vazia se o usuário a apontou de propósito.
+    if (!achados.length && argumentos.length) console.error(`Nenhum ITENS_PROVA_*.csv em ${alvo}`);
     arquivos.push(...achados);
   } else {
     arquivos.push(alvo);
@@ -61,14 +64,18 @@ for (const alvo of alvos) {
 
 if (!arquivos.length) {
   console.error(`
-Uso:
-  node scripts/mesclar-tri.mjs                          (lê ../microdados/)
-  node scripts/mesclar-tri.mjs ../microdados            (uma pasta)
+Não achei nenhum ITENS_PROVA_*.csv.
+
+Ponha os arquivos em qualquer uma destas pastas e rode de novo:
+  microdados/        (dentro do site — o .gitignore já cuida deles)
+  dados/
+  ../microdados/
+
+Ou aponte o caminho na mão:
   node scripts/mesclar-tri.mjs caminho/ITENS_PROVA_2023.csv [...]
 
-Rode de dentro da pasta do site, porque ele grava em dados/questoes-*.json.
-Baixe os microdados em:
-  gov.br/inep → Dados Abertos → Microdados → ENEM
+Onde baixar:
+  gov.br/inep → Dados Abertos → Microdados → ENEM (anos 2020 a 2023)
 Do ZIP, só interessa DADOS/ITENS_PROVA_<ano>.csv. O banco cobre 2009 a 2023.`);
   process.exit(1);
 }
@@ -79,8 +86,9 @@ if (!existsSync('dados/questoes-matematica.json')) {
 }
 
 const parametros = new Map();
+const anosVistos = new Set();
 
-for (const arquivo of arquivos) {
+for (const arquivo of [...new Set(arquivos)]) {
   if (!existsSync(arquivo)) { console.error(`Não encontrei ${arquivo}`); continue; }
 
   const ano = numero((basename(arquivo).match(/(19|20)\d{2}/) || [])[0]);
@@ -88,6 +96,12 @@ for (const arquivo of arquivos) {
     console.error(`Não achei o ano no nome de ${arquivo}. Renomeie para ITENS_PROVA_2021.csv.`);
     continue;
   }
+
+  if (anosVistos.has(ano)) {
+    console.log(`${basename(arquivo)}: ano ${ano} já processado, pulando.`);
+    continue;
+  }
+  anosVistos.add(ano);
 
   const linhas = lerCSV(arquivo);
   const cores = new Set(linhas.map((l) => (l.TX_COR || '').toUpperCase()).filter(Boolean));

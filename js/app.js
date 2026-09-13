@@ -111,12 +111,6 @@ function desenharEntrar() {
          Outras contas não têm acesso.`
       : 'Entrar cria sua conta automaticamente na primeira vez.'}</p>`;
 
-  if (est.estado.uid) {
-    caixa.insertAdjacentHTML('beforeend',
-      `<button class="secundario" id="btn-voltar-local" style="margin-top:14px">Continuar sem entrar</button>`);
-    $('#btn-voltar-local').onclick = () => abrirApp();
-  }
-
   const erro = (e) => {
     const amigavel = {
       'auth/popup-closed-by-user': 'Você fechou a janela do Google antes de terminar.',
@@ -753,8 +747,7 @@ function verificarLiberacao(totalErros) {
 
 // ---------------------------------------------------------------- flashcards
 
-let cartaoAtual = null;
-let abaRevisao = 'cartoes';
+let abaRevisao = 'revisar';
 
 function desenharCartoes() {
   const alvo = $('#cartoes-conteudo');
@@ -762,12 +755,13 @@ function desenharCartoes() {
 
   alvo.innerHTML = `
     <div class="abas" id="abas-revisao">
-      <button class="${abaRevisao === 'cartoes' ? 'ativa' : ''}" data-aba="cartoes">
-        Cartões${pendentes.length ? ` <i>${pendentes.length}</i>` : ''}
+      <button class="${abaRevisao === 'revisar' ? 'ativa' : ''}" data-aba="revisar">
+        Revisar${pendentes.length ? ` <i>${pendentes.length}</i>` : ''}
       </button>
       <button class="${abaRevisao === 'resumos' ? 'ativa' : ''}" data-aba="resumos">
         Resumos${est.estado.resumos?.length ? ` <i>${est.estado.resumos.length}</i>` : ''}
       </button>
+      <button class="${abaRevisao === 'provas' ? 'ativa' : ''}" data-aba="provas">Provas</button>
     </div>
     <div id="revisao-corpo"></div>`;
 
@@ -776,51 +770,107 @@ function desenharCartoes() {
   });
 
   if (abaRevisao === 'resumos') return desenharResumos();
-  desenharFilaCartoes(pendentes);
+  if (abaRevisao === 'provas') return desenharProvas();
+  desenharConceitos(pendentes);
 }
 
-function desenharFilaCartoes(pendentes) {
+/** Link de busca no YouTube. Busca não quebra; vídeo específico sai do ar. */
+function aulaNoYoutube(conceito, area) {
+  const termo = `${conceito} ENEM ${NOME_AREA[area] || ''}`.trim();
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(termo)}`;
+}
+
+/**
+ * Lista de conceitos a revisar, no lugar do baralho de flashcards.
+ *
+ * O sistema antigo pedia para você virar cada carta e se autoavaliar em
+ * quatro níveis. Funciona para memorizar, mas é trabalhoso e ninguém volta.
+ * Aqui você vê o conceito, lê a explicação e decide em dois botões — e tem
+ * um atalho para uma aula em vídeo do assunto.
+ *
+ * A revisão espaçada continua rodando por baixo: "ainda não" traz de volta
+ * hoje mesmo, "já sei" empurra para frente com o intervalo crescendo.
+ */
+function desenharConceitos(pendentes) {
   const corpo = $('#revisao-corpo');
+  const total = est.estado.flashcards.length;
 
   if (!pendentes.length) {
     corpo.innerHTML = `<div class="vazio">
-      <h3>Nada para revisar hoje</h3>
-      <p>Os cartões nascem dos seus erros. Faça uma sessão e eles aparecem aqui.</p>
-      <p class="fraco">${est.estado.flashcards.length} ${est.estado.flashcards.length === 1 ? 'cartão no total' : 'cartões no total'}</p>
+      <h3>${total ? 'Tudo revisado por hoje' : 'Nada para revisar ainda'}</h3>
+      <p>${total
+        ? 'Os conceitos voltam sozinhos quando estiver na hora de reforçar.'
+        : 'A lista se monta com os conceitos que você errou nas sessões.'}</p>
+      ${total ? `<p class="fraco">${total} ${total === 1 ? 'conceito acompanhado' : 'conceitos acompanhados'}</p>` : ''}
     </div>`;
     return;
   }
 
-  cartaoAtual = pendentes[0];
   corpo.innerHTML = `
-    <p class="fraco">${pendentes.length} ${pendentes.length === 1 ? 'cartão' : 'cartões'} na fila</p>
-    <div class="flash">
-      <div class="frente">${escapar(cartaoAtual.frente)}</div>
-      <div class="verso" id="verso" hidden>${escapar(cartaoAtual.verso)}</div>
-    </div>
-    <button class="primario" id="btn-virar">Mostrar resposta</button>
-    <div class="notas" id="notas" hidden>
-      <button data-q="0">Errei</button>
-      <button data-q="1">Difícil</button>
-      <button data-q="2">Acertei</button>
-      <button data-q="3">Fácil</button>
-    </div>`;
+    <p class="fraco">${pendentes.length} ${pendentes.length === 1 ? 'conceito' : 'conceitos'} para hoje</p>
+    ${pendentes.map((c) => `
+      <div class="conceito-cartao" data-id="${escapar(c.id)}">
+        <h3>${escapar(c.conceito || c.frente)}</h3>
+        <p class="conceito-texto">${escapar(c.verso || '')}</p>
+        <div class="conceito-acoes">
+          <a class="botao secundario" target="_blank" rel="noopener"
+             href="${escapar(aulaNoYoutube(c.conceito || c.frente, c.area))}">Ver aula</a>
+          <button class="secundario" data-nota="0" data-id="${escapar(c.id)}">Ainda não</button>
+          <button class="primario" data-nota="2" data-id="${escapar(c.id)}">Já sei</button>
+        </div>
+      </div>`).join('')}`;
 
-  $('#btn-virar').onclick = () => {
-    $('#verso').hidden = false;
-    $('#btn-virar').hidden = true;
-    $('#notas').hidden = false;
-  };
-
-  document.querySelectorAll('#notas button').forEach((b) => {
+  corpo.querySelectorAll('button[data-nota]').forEach((b) => {
     b.onclick = () => {
-      const i = est.estado.flashcards.findIndex((c) => c.id === cartaoAtual.id);
-      est.estado.flashcards[i] = srs.revisar(cartaoAtual, Number(b.dataset.q));
+      const cartao = est.estado.flashcards.find((c) => c.id === b.dataset.id);
+      if (!cartao) return;
+      const i = est.estado.flashcards.indexOf(cartao);
+      est.estado.flashcards[i] = srs.revisar(cartao, Number(b.dataset.nota));
       est.salvarLocal();
       est.sincronizar();
       desenharCartoes();
     };
   });
+}
+
+// ---------------------------------------------------------------- provas
+
+const PROVAS = [
+  { ano: 2023, dia: 1, arquivo: 'ENEM_2023_P1_CAD_01_DIA_1_AZUL.pdf' },
+  { ano: 2023, dia: 2, arquivo: 'ENEM_2023_P2_CAD_07_DIA_2_AZUL.pdf' },
+  { ano: 2022, dia: 1, arquivo: 'ENEM_2022_P1_CAD_01_DIA_1_AZUL.pdf' },
+  { ano: 2022, dia: 2, arquivo: 'ENEM_2022_P1_CAD_07_DIA_2_AZUL.pdf' },
+  { ano: 2021, dia: 1, arquivo: 'ENEM_2021_DIGITAL_CAD_01_DIA_1_AZUL_ESPANHOL.pdf' },
+  { ano: 2021, dia: 2, arquivo: 'ENEM_2021_DIGITAL_CAD_07_DIA_2_AZUL.pdf' },
+  { ano: 2020, dia: 1, arquivo: 'ENEM_2020_DIGITAL_CAD_01_DIA_1_AZUL_ESPANHOL.pdf' },
+  { ano: 2020, dia: 2, arquivo: 'ENEM_2020_DIGITAL_CAD_07_DIA_2_AZUL.pdf' },
+];
+
+const CONTEUDO_DIA = {
+  1: 'Linguagens, Humanas e Redação · 5h30',
+  2: 'Natureza e Matemática · 5h',
+};
+
+function desenharProvas() {
+  const anos = [...new Set(PROVAS.map((p) => p.ano))].sort((a, b) => b - a);
+
+  $('#revisao-corpo').innerHTML = `
+    <p class="fraco">Provas completas em PDF, caderno azul. Baixe para treinar
+    no papel, com o tempo real da prova — é o único jeito de treinar cansaço.</p>
+    ${anos.map((ano) => `
+      <div class="cartao">
+        <h3>ENEM ${ano}</h3>
+        ${PROVAS.filter((p) => p.ano === ano).map((p) => `
+          <a class="linha-prova" href="provas/${escapar(p.arquivo)}" download>
+            <span>
+              <b>Dia ${p.dia}</b>
+              <span class="fraco">${CONTEUDO_DIA[p.dia]}</span>
+            </span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/></svg>
+          </a>`).join('')}
+      </div>`).join('')}
+    <p class="fraco">Os gabaritos oficiais saem no site do INEP. As questões
+    destes anos também estão no banco do app, já com a dificuldade calibrada.</p>`;
 }
 
 // ---------------------------------------------------------------- resumos
@@ -1049,13 +1099,124 @@ function desenharRedacao() {
 
 // ---------------------------------------------------------------- plano
 
+const DIAS = [
+  { i: 0, curto: 'D', nome: 'Domingo' },
+  { i: 1, curto: 'S', nome: 'Segunda' },
+  { i: 2, curto: 'T', nome: 'Terça' },
+  { i: 3, curto: 'Q', nome: 'Quarta' },
+  { i: 4, curto: 'Q', nome: 'Quinta' },
+  { i: 5, curto: 'S', nome: 'Sexta' },
+  { i: 6, curto: 'S', nome: 'Sábado' },
+];
+
+/**
+ * Distribui as áreas pelos dias em que você estuda, na proporção da
+ * prioridade. Dia de redação não recebe área: escrever uma redação já toma
+ * a sessão inteira, e empilhar as duas coisas é como o cronograma morre.
+ */
+function montarSemana(prioridades, rotina) {
+  const diasRedacao = new Set(rotina.redacao || []);
+  const diasEstudo = (rotina.estudo || [1, 2, 3, 4, 5]).filter((d) => !diasRedacao.has(d));
+
+  // Cotas proporcionais, garantindo ao menos um dia para cada área medida.
+  const cotas = prioridades.map((p) => ({
+    area: p.area,
+    ideal: (p.percentual / 100) * diasEstudo.length,
+    dados: 0,
+  }));
+
+  const escala = [];
+  for (let k = 0; k < diasEstudo.length; k++) {
+    // A cada rodada entra quem está mais atrás da própria cota.
+    cotas.sort((x, y) => (y.ideal - y.dados) - (x.ideal - x.dados));
+    cotas[0].dados += 1;
+    escala.push(cotas[0].area);
+  }
+
+  return DIAS.map((d) => ({
+    ...d,
+    redacao: diasRedacao.has(d.i),
+    area: diasRedacao.has(d.i) ? null : (diasEstudo.includes(d.i) ? escala[diasEstudo.indexOf(d.i)] : null),
+    folga: !diasRedacao.has(d.i) && !diasEstudo.includes(d.i),
+  }));
+}
+
+function cartaoRotina(prioridades) {
+  const e = est.estado;
+  const rotina = e.rotina || { redacao: [3], estudo: [1, 2, 3, 4, 5] };
+  const semana = montarSemana(prioridades, rotina);
+  const hoje = new Date().getDay();
+
+  return `<div class="cartao">
+    <h3>Sua semana</h3>
+    <p class="fraco" style="margin-bottom:14px">Toque num dia para marcar ou desmarcar
+    estudo. Toque no lápis para dizer que ali é dia de redação.</p>
+
+    <div class="semana">
+      ${semana.map((d) => `
+        <div class="dia ${d.folga ? 'folga' : ''} ${d.redacao ? 'redacao' : ''} ${d.i === hoje ? 'hoje' : ''}">
+          <button class="dia-toque" data-dia="${d.i}" title="${d.nome}">
+            <span class="dia-letra">${d.curto}</span>
+            <span class="dia-marca">${d.redacao ? 'Red.' : d.area ? NOME_AREA[d.area].slice(0, 4) : '—'}</span>
+          </button>
+          <button class="dia-redacao" data-redacao="${d.i}" title="Marcar ${d.nome} como dia de redação"
+            aria-pressed="${d.redacao}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>
+          </button>
+        </div>`).join('')}
+    </div>
+
+    <div class="semana-lista">
+      ${semana.map((d) => `
+        <div class="linha-dia ${d.i === hoje ? 'hoje' : ''}">
+          <b>${d.nome}</b>
+          <span class="${d.folga ? 'fraco' : ''}">${
+            d.redacao ? 'Redação' : d.area ? NOME_AREA[d.area] : 'Descanso'
+          }</span>
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function ligarRotina(prioridades) {
+  const e = est.estado;
+  if (!e.rotina) e.rotina = { redacao: [3], estudo: [1, 2, 3, 4, 5] };
+
+  document.querySelectorAll('.dia-toque').forEach((b) => {
+    b.onclick = () => {
+      const d = Number(b.dataset.dia);
+      const estudo = new Set(e.rotina.estudo);
+      const redacao = new Set(e.rotina.redacao);
+      if (redacao.has(d)) redacao.delete(d);
+      else if (estudo.has(d)) estudo.delete(d);
+      else estudo.add(d);
+      e.rotina = { estudo: [...estudo].sort(), redacao: [...redacao].sort() };
+      est.salvarLocal(); est.sincronizar(); desenharPlano();
+    };
+  });
+
+  document.querySelectorAll('.dia-redacao').forEach((b) => {
+    b.onclick = () => {
+      const d = Number(b.dataset.redacao);
+      const redacao = new Set(e.rotina.redacao);
+      const estudo = new Set(e.rotina.estudo);
+      if (redacao.has(d)) { redacao.delete(d); estudo.add(d); }
+      else { redacao.add(d); estudo.add(d); }
+      e.rotina = { estudo: [...estudo].sort(), redacao: [...redacao].sort() };
+      est.salvarLocal(); est.sincronizar(); desenharPlano();
+    };
+  });
+}
+
 function desenharPlano() {
   const e = est.estado;
   if (!e.alvo.pesos) { $('#plano-conteudo').innerHTML = '<p class="fraco">Escolha seu curso no perfil.</p>'; return; }
 
   const prioridades = calcularPrioridades(e.alvo.pesos, e.thetas);
 
-  let html = `<div class="cartao">
+  let html = cartaoRotina(prioridades);
+
+  html += `<div class="cartao">
     <h3>Divisão do seu tempo</h3>
     <p class="fraco" style="margin-bottom:14px">Peso do curso multiplicado pelo quanto falta até 700. Área com peso alto onde você já vai bem rende menos, e desce sozinha.</p>`;
 
@@ -1088,6 +1249,7 @@ function desenharPlano() {
     <p class="fraco" style="margin:0">A meta interna é ${thetaParaNota(THETA_ALVO)} pontos por área. Passando disso, a área sai da prioridade e o tempo vai para onde ainda falta.</p></div>`;
 
   $('#plano-conteudo').innerHTML = html;
+  ligarRotina(prioridades);
 }
 
 // ---------------------------------------------------------------- perfil
@@ -1130,14 +1292,25 @@ const PLANOS = {
   // Os outros planos ainda não estão definidos — ficam aqui para o dia que estiverem.
 };
 
+/**
+ * Identidade vem inteira da conta Google da escola: nome, e-mail e foto.
+ * Não há campo para editar — em plataforma escolar, nome digitado à mão vira
+ * apelido e some a ligação com a conta institucional.
+ */
 function cabecalhoPerfil() {
   const e = est.estado;
   const plano = PLANOS[e.plano] || PLANOS.gratuito;
   const nome = e.nome || 'Estudante';
   const iniciais = nome.trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
 
+  const avatar = e.foto
+    ? `<img class="avatar" src="${escapar(e.foto)}" alt="" referrerpolicy="no-referrer"
+         onerror="this.replaceWith(Object.assign(document.createElement('div'),
+           {className:'avatar', textContent:'${escapar(iniciais)}'}))">`
+    : `<div class="avatar" aria-hidden="true">${escapar(iniciais)}</div>`;
+
   return `<div class="cartao perfil-topo">
-    <div class="avatar" aria-hidden="true">${escapar(iniciais)}</div>
+    ${avatar}
     <div class="perfil-identidade">
       <b id="perfil-nome">${escapar(nome)}</b>
       ${e.email ? `<span class="fraco">${escapar(e.email)}</span>` : ''}
@@ -1153,12 +1326,6 @@ function desenharPerfil() {
 
   $('#perfil-conteudo').innerHTML = `
     ${cabecalhoPerfil()}
-
-    <div class="cartao">
-      <h3>Seu nome</h3>
-      <label for="in-nome">Como quer ser chamado</label>
-      <input id="in-nome" type="text" maxlength="40" value="${escapar(e.nome || '')}" placeholder="Seu nome">
-    </div>
 
     <div class="cartao">
       <h3>Curso alvo</h3>
@@ -1211,13 +1378,6 @@ function desenharPerfil() {
     e.metaSemanal.sessoes = Math.max(1, Number(ev.target.value) || 5);
     est.salvarLocal(); est.sincronizar();
   };
-  $('#in-nome').oninput = (ev) => {
-    e.nome = ev.target.value.trim() || null;
-    est.salvarLocal();
-    // Atualiza o cabeçalho na hora; esperar o blur fazia parecer que não salvou.
-    $('#perfil-nome').textContent = e.nome || 'Estudante';
-  };
-  $('#in-nome').onblur = () => { est.sincronizar(); $('#perfil-nome').textContent = e.nome || 'Estudante'; };
   $('#btn-exportar').onclick = () => est.exportarBackup();
   $('#btn-importar').onclick = () => $('#in-arquivo').click();
   $('#in-arquivo').onchange = async (ev) => {
@@ -1355,8 +1515,10 @@ async function principal() {
       return;
     }
     await est.puxarDaNuvem(usuario.uid);
-    if (!est.estado.nome && usuario.nome) est.estado.nome = usuario.nome.split('@')[0];
+    // Identidade sempre espelha a conta: se a escola trocar o nome, o app segue.
+    if (usuario.nome) est.estado.nome = usuario.nome.split('@')[0];
     est.estado.email = usuario.email || null;
+    est.estado.foto = usuario.foto || null;
     est.salvarLocal();
     await abrirApp();
   });
