@@ -17,7 +17,7 @@ export const FIREBASE = {
 };
 
 /** URL do seu Cloudflare Worker. Deixe vazio para desligar a IA. */
-export const URL_WORKER = '';
+export const URL_WORKER = https://prumoenem-ia.prumoenem.workers.dev';
 
 /** Com true, ignora o Firebase e usa só dados locais. Útil para testar. */
 export const MODO_LOCAL = false;
