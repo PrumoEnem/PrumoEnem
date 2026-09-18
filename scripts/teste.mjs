@@ -46,7 +46,7 @@ ok('natureza sobe', p[0].area==='natureza');
 console.log('\n=== Montagem da sessão ===');
 const s = montarSessao(banco.matematica, 0.5, []);
 ok('9 questões', s.questoes.length===9);
-ok('marcada como não calibrada (sem params do INEP)', s.calibrada===false);
+ok('marcada como calibrada (params do INEP mesclados)', s.calibrada===true);
 ok('sem repetição dentro da sessão', new Set(s.questoes.map(q=>q.id)).size===9);
 const vistas = s.questoes.map(q=>q.id);
 const s2 = montarSessao(banco.matematica, 0.5, vistas);

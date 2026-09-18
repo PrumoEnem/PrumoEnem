@@ -452,8 +452,11 @@ input:focus, select:focus { outline: none; border-color: var(--azul); box-shadow
   .rodape-sessao {
     grid-column: 2; grid-row: 4;
     position: static; max-width: none;
-    padding: 4px 0 0; margin-top: 14px;
-    background: none; box-shadow: none;
+    padding: 12px 0 0; margin-top: 12px;
+    /* Fundo sólido mesmo aqui, onde em tese não precisaria: se o
+       posicionamento falhar por qualquer motivo, o enunciado não aparece
+       atrás dos botões. Custa nada e elimina a classe inteira do bug. */
+    background: var(--fundo); box-shadow: none;
   }
   #sessao-conteudo { padding-bottom: 0; }
   .sessao-info { font-size: 14.5px; }
@@ -601,6 +604,15 @@ img.avatar { object-fit: cover; padding: 0; }
   color: var(--texto); text-decoration: none;
 }
 .linha-prova:last-child { border-bottom: none; padding-bottom: 0; }
+.prova-acoes { display: flex; gap: 8px; flex-shrink: 0; }
+.prova-acoes .botao {
+  width: auto; min-height: 40px; padding: 9px 16px;
+  font-size: 14px; display: grid; place-items: center;
+}
+@media (max-width: 420px) {
+  .linha-prova { flex-direction: column; align-items: stretch; gap: 10px; }
+  .prova-acoes .botao { flex: 1; }
+}
 .linha-prova > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .linha-prova b { font-family: var(--display); font-weight: 550; font-size: 15px; }
 .linha-prova .fraco { font-size: 13px; }
@@ -649,3 +661,33 @@ img.avatar { object-fit: cover; padding: 0; }
 .linha-dia:last-child { border-bottom: none; }
 .linha-dia b { font-family: var(--display); font-weight: 550; }
 .linha-dia.hoje b { color: var(--ambar); }
+
+/* Mensagem de socorro quando os módulos não carregam. */
+#socorro {
+  max-width: 520px; margin: 60px auto; padding: 24px 20px;
+  background: var(--superficie); border: 1px solid var(--erro);
+  border-radius: var(--r-m);
+}
+#socorro h2 { color: var(--erro); margin-top: 0; }
+#socorro button { margin-top: 16px; }
+
+textarea {
+  width: 100%; min-height: 200px; padding: 14px;
+  font-family: var(--corpo); font-size: 15px; line-height: 1.6;
+  background: var(--fundo-alto); color: var(--texto);
+  border: 1px solid var(--linha); border-radius: var(--r-m);
+  resize: vertical;
+}
+textarea:focus { outline: none; border-color: var(--azul); box-shadow: 0 0 0 3px rgba(98, 174, 248, .16); }
+
+/* ---------- Questões erradas pendentes ---------- */
+
+.erro-pendente { border-left: 2px solid var(--erro); }
+.erro-cabecalho { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.erro-cabecalho b { font-family: var(--display); font-size: 14.5px; font-weight: 550; }
+.etiqueta-tentativas {
+  font-family: var(--display); font-size: 11px; font-weight: 500;
+  color: var(--erro); background: rgba(236, 111, 131, .13);
+  border-radius: 999px; padding: 2px 9px; flex-shrink: 0;
+}
+.erro-trecho { font-size: 14.5px; line-height: 1.55; color: #cfd4e6; margin-bottom: 8px; }

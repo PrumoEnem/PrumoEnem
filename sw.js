@@ -1,6 +1,6 @@
 /* sw.js — cache-first para o app, stale-while-revalidate para os dados. */
 
-const VERSAO = 'v8';
+const VERSAO = 'v12';
 const ESTATICO = `estatico-${VERSAO}`;
 const DADOS = `dados-${VERSAO}`;
 
@@ -8,7 +8,7 @@ const ESSENCIAIS = [
   './', './index.html', './manifest.json',
   './css/app.css',
   './js/app.js', './js/tri.js', './js/motor.js', './js/srs.js',
-  './js/dados.js', './js/estado.js', './js/nuvem.js', './js/ia.js', './js/config.js',
+  './js/dados.js', './js/revisao.js', './js/estado.js', './js/nuvem.js', './js/ia.js', './js/config.js',
   './js/redacao.js',
   './dados/cursos.json', './dados/vocabulario.json',
   './favicon.svg', './icone-192.png', './apple-touch-icon.png',
@@ -69,7 +69,17 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       fetch(e.request)
         .then((r) => {
-          if (r.ok) caches.open(ESTATICO).then((c) => c.put(e.request, r.clone()));
+          if (r.ok) {
+            /*
+             * A cópia tem que ser feita AGORA, não dentro do then do
+             * caches.open(). Quando aquela promessa resolve, o navegador já
+             * entregou a resposta à página e o corpo foi consumido — o clone
+             * falha com "Response body is already used" e o arquivo nunca
+             * entra no cache.
+             */
+            const copia = r.clone();
+            caches.open(ESTATICO).then((c) => c.put(e.request, copia)).catch(() => {});
+          }
           return r;
         })
         .catch(() => caches.match(e.request).then((c) => c || caches.match('./index.html')))

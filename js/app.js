@@ -8,6 +8,7 @@ import * as est from './estado.js';
 import * as nuvem from './nuvem.js';
 import * as ia from './ia.js';
 import * as red from './redacao.js';
+import * as rev from './revisao.js';
 import { MODO_LOCAL, DOMINIO_PERMITIDO } from './config.js';
 
 const $ = (s) => document.querySelector(s);
@@ -326,23 +327,39 @@ async function montarEIniciar() {
 
   const theta = e.thetas[area]?.theta ?? 0;
   const porFaixa = Math.max(1, Math.round(tamanho / 3));
-  const { questoes: escolhidas, calibrada } =
+  const { questoes: novas, calibrada } =
     montarSessao(questoes, theta, e.questoesVistas[area], porFaixa);
+
+  // Questões erradas antes voltam até serem acertadas, com as alternativas
+  // embaralhadas para não valer lembrar a letra.
+  const daFila = rev.selecionarParaSessao(e.errosPendentes || []);
+  const deRevisao = [];
+  for (const item of daFila) {
+    try {
+      const banco = await carregarQuestoes(item.area);
+      const q = banco.find((x) => x.id === item.id);
+      if (q) deRevisao.push(rev.embaralharAlternativas(q));
+    } catch { /* área indisponível: ignora esta */ }
+  }
+
+  // Revisão primeiro: começar acertando o que já custou nota rende mais.
+  const escolhidas = [...deRevisao, ...novas].slice(0, tamanho + deRevisao.length);
 
   sessao = {
     id: `s-${Date.now()}`,
     area, calibrada, modo,
-    questoes: escolhidas.slice(0, tamanho),
+    questoes: escolhidas.slice(0, tamanho + deRevisao.length),
+    quantasRevisao: deRevisao.length,
     indice: 0,
     // Respostas por posição: dá para voltar e trocar sem bagunçar a ordem.
-    respostas: new Array(Math.min(tamanho, escolhidas.length)).fill(null),
+    respostas: new Array(escolhidas.length).fill(null),
     paraRever: new Set(),
     vocabulario: srs.proximoVocabulario(bancoVocabulario, e.vocabulario),
     respostaVocabulario: null,
     naVocabulario: false,
     inicio: Date.now(),
-    segundosTotais: modo === 'total' ? escolhidas.slice(0, tamanho).length * SEGUNDOS_POR_QUESTAO : null,
-    gastoPorQuestao: new Array(Math.min(tamanho, escolhidas.length)).fill(0),
+    segundosTotais: modo === 'total' ? escolhidas.length * SEGUNDOS_POR_QUESTAO : null,
+    gastoPorQuestao: new Array(escolhidas.length).fill(0),
     entradaQuestao: Date.now(),
   };
   desenharQuestao();
@@ -625,6 +642,13 @@ async function finalizarSessao() {
   const rv = s.respostaVocabulario;
   e.vocabulario[rv.item.id] = srs.atualizarVocabulario(e.vocabulario[rv.item.id] || {}, rv.acertou);
 
+  // Fila de revisão: errou entra, acertou sai.
+  if (!e.errosPendentes) e.errosPendentes = [];
+  for (const r of s.respostas) {
+    if (r.acertou) e.errosPendentes = rev.removerAcertada(e.errosPendentes, r.questao.id);
+    else e.errosPendentes = rev.registrarErro(e.errosPendentes, r.questao, r.marcada);
+  }
+
   est.marcarVistas(s.area, s.respostas.map((r) => r.questao.id));
   e.sessoes.push({ id: s.id, data: new Date().toISOString(), area: s.area, acertos, total: s.respostas.length });
   e.sessoes = e.sessoes.slice(-120);
@@ -653,6 +677,15 @@ function desenharResultado(acertos, estimativa) {
       <div><span class="n">${faixa ? faixa.nota : '—'}</span><span class="r">${NOME_AREA[s.area]}</span></div>
       <div><span class="n">${Math.round(tempoTotal / 60)}min</span><span class="r">de prova</span></div>
     </div>`;
+
+  if (s.quantasRevisao) {
+    const revisadas = s.respostas.slice(0, s.quantasRevisao);
+    const acertadas = revisadas.filter((r) => r.acertou).length;
+    html += `<p class="fraco">${s.quantasRevisao} ${s.quantasRevisao === 1 ? 'questão era' : 'questões eram'}
+      de revisão — você acertou ${acertadas}. ${acertadas === s.quantasRevisao
+        ? 'Saíram da fila.'
+        : 'As erradas voltam na próxima sessão.'}</p>`;
+  }
 
   if (faixa && !faixa.confiavel) {
     html += `<p class="fraco">Nota estimada entre ${faixa.minima} e ${faixa.maxima}. A faixa aperta conforme você acumula sessões.</p>`;
@@ -727,6 +760,12 @@ async function carregarExplicacoes(erros) {
           conceito,
           origemQuestaoId: r.questao.id,
         }));
+        // A explicação também vai para a fila, para ficar visível na aba Errei.
+        if (achada?.texto) {
+          est.estado.errosPendentes = rev.anotarExplicacao(
+            est.estado.errosPendentes || [], r.questao.id, achada.texto
+          );
+        }
         est.salvarLocal();
         verificarLiberacao(erros.length);
       };
@@ -751,12 +790,12 @@ let abaRevisao = 'revisar';
 
 function desenharCartoes() {
   const alvo = $('#cartoes-conteudo');
-  const pendentes = srs.vencidos(est.estado.flashcards);
+  const fila = est.estado.errosPendentes || [];
 
   alvo.innerHTML = `
     <div class="abas" id="abas-revisao">
       <button class="${abaRevisao === 'revisar' ? 'ativa' : ''}" data-aba="revisar">
-        Revisar${pendentes.length ? ` <i>${pendentes.length}</i>` : ''}
+        Errei${fila.length ? ` <i>${fila.length}</i>` : ''}
       </button>
       <button class="${abaRevisao === 'resumos' ? 'ativa' : ''}" data-aba="resumos">
         Resumos${est.estado.resumos?.length ? ` <i>${est.estado.resumos.length}</i>` : ''}
@@ -771,66 +810,46 @@ function desenharCartoes() {
 
   if (abaRevisao === 'resumos') return desenharResumos();
   if (abaRevisao === 'provas') return desenharProvas();
-  desenharConceitos(pendentes);
-}
-
-/** Link de busca no YouTube. Busca não quebra; vídeo específico sai do ar. */
-function aulaNoYoutube(conceito, area) {
-  const termo = `${conceito} ENEM ${NOME_AREA[area] || ''}`.trim();
-  return `https://www.youtube.com/results?search_query=${encodeURIComponent(termo)}`;
+  desenharErrosPendentes();
 }
 
 /**
- * Lista de conceitos a revisar, no lugar do baralho de flashcards.
+ * Lista das questões que você errou e ainda não acertou.
  *
- * O sistema antigo pedia para você virar cada carta e se autoavaliar em
- * quatro níveis. Funciona para memorizar, mas é trabalhoso e ninguém volta.
- * Aqui você vê o conceito, lê a explicação e decide em dois botões — e tem
- * um atalho para uma aula em vídeo do assunto.
- *
- * A revisão espaçada continua rodando por baixo: "ainda não" traz de volta
- * hoje mesmo, "já sei" empurra para frente com o intervalo crescendo.
+ * Aqui é só leitura: o resumo do que caiu e a explicação da IA, quando ela
+ * já respondeu. Responder de novo acontece na sessão — a questão volta
+ * sozinha, embaralhada, até você acertar.
  */
-function desenharConceitos(pendentes) {
+function desenharErrosPendentes() {
   const corpo = $('#revisao-corpo');
-  const total = est.estado.flashcards.length;
+  const fila = est.estado.errosPendentes || [];
 
-  if (!pendentes.length) {
+  if (!fila.length) {
     corpo.innerHTML = `<div class="vazio">
-      <h3>${total ? 'Tudo revisado por hoje' : 'Nada para revisar ainda'}</h3>
-      <p>${total
-        ? 'Os conceitos voltam sozinhos quando estiver na hora de reforçar.'
-        : 'A lista se monta com os conceitos que você errou nas sessões.'}</p>
-      ${total ? `<p class="fraco">${total} ${total === 1 ? 'conceito acompanhado' : 'conceitos acompanhados'}</p>` : ''}
+      <h3>Nenhuma questão pendente</h3>
+      <p>Quando você errar uma questão, ela aparece aqui e volta nas próximas
+      sessões até você acertar.</p>
     </div>`;
     return;
   }
 
   corpo.innerHTML = `
-    <p class="fraco">${pendentes.length} ${pendentes.length === 1 ? 'conceito' : 'conceitos'} para hoje</p>
-    ${pendentes.map((c) => `
-      <div class="conceito-cartao" data-id="${escapar(c.id)}">
-        <h3>${escapar(c.conceito || c.frente)}</h3>
-        <p class="conceito-texto">${escapar(c.verso || '')}</p>
-        <div class="conceito-acoes">
-          <a class="botao secundario" target="_blank" rel="noopener"
-             href="${escapar(aulaNoYoutube(c.conceito || c.frente, c.area))}">Ver aula</a>
-          <button class="secundario" data-nota="0" data-id="${escapar(c.id)}">Ainda não</button>
-          <button class="primario" data-nota="2" data-id="${escapar(c.id)}">Já sei</button>
+    <p class="fraco">${fila.length} ${fila.length === 1 ? 'questão volta' : 'questões voltam'}
+    nas próximas sessões, ${rev.POR_SESSAO} por vez, com as alternativas embaralhadas.</p>
+    ${fila.map((f) => `
+      <div class="cartao erro-pendente">
+        <div class="erro-cabecalho">
+          <b>${NOME_AREA[f.area] || f.area} · ${f.ano}, questão ${f.numero}</b>
+          <span class="etiqueta-tentativas">${f.tentativas}× ${f.tentativas === 1 ? 'erro' : 'erros'}</span>
         </div>
+        <p class="erro-trecho">${escapar(f.trecho || '')}</p>
+        <p class="fraco">Você marcou <b>${escapar(f.marcada || '—')}</b> · gabarito <b>${escapar(f.gabarito)}</b></p>
+        ${f.explicacao
+          ? `<div class="explicacao">${formatarTexto(f.explicacao)}</div>`
+          : `<p class="fraco">Sem explicação guardada${ia.iaDisponivel()
+              ? ' — ela é gerada ao fim da sessão em que você errar de novo.'
+              : '. Ligue a IA para ter explicações.'}</p>`}
       </div>`).join('')}`;
-
-  corpo.querySelectorAll('button[data-nota]').forEach((b) => {
-    b.onclick = () => {
-      const cartao = est.estado.flashcards.find((c) => c.id === b.dataset.id);
-      if (!cartao) return;
-      const i = est.estado.flashcards.indexOf(cartao);
-      est.estado.flashcards[i] = srs.revisar(cartao, Number(b.dataset.nota));
-      est.salvarLocal();
-      est.sincronizar();
-      desenharCartoes();
-    };
-  });
 }
 
 // ---------------------------------------------------------------- provas
@@ -861,13 +880,16 @@ function desenharProvas() {
       <div class="cartao">
         <h3>ENEM ${ano}</h3>
         ${PROVAS.filter((p) => p.ano === ano).map((p) => `
-          <a class="linha-prova" href="provas/${escapar(p.arquivo)}" download>
+          <div class="linha-prova">
             <span>
               <b>Dia ${p.dia}</b>
               <span class="fraco">${CONTEUDO_DIA[p.dia]}</span>
             </span>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/></svg>
-          </a>`).join('')}
+            <span class="prova-acoes">
+              <a class="botao secundario" href="provas/${escapar(p.arquivo)}" target="_blank" rel="noopener">Abrir</a>
+              <a class="botao secundario" href="provas/${escapar(p.arquivo)}" download="${escapar(p.arquivo)}">Baixar</a>
+            </span>
+          </div>`).join('')}
       </div>`).join('')}
     <p class="fraco">Os gabaritos oficiais saem no site do INEP. As questões
     destes anos também estão no banco do app, já com a dificuldade calibrada.</p>`;
@@ -960,6 +982,28 @@ function desenharResumos() {
 
 const MINUTOS_PADRAO = 60;
 
+const MODELO_REDACAO = `Introdução
+- Repertório: [autor, lei, dado ou obra]
+- Contextualização do tema
+- Tese: [sua posição em uma frase]
+
+Desenvolvimento 1
+- Argumento: [causa]
+- Comprovação: [repertório ou dado]
+- Fechamento ligando à tese
+
+Desenvolvimento 2
+- Argumento: [consequência]
+- Comprovação: [repertório ou dado]
+- Fechamento ligando à tese
+
+Conclusão — proposta de intervenção
+- Agente: quem faz
+- Ação: o que faz
+- Meio: como faz
+- Efeito: para quê
+- Detalhamento: de um dos anteriores`;
+
 function desenharRedacao() {
   const e = est.estado;
   const notas = e.redacao?.competencias || {};
@@ -991,6 +1035,20 @@ function desenharRedacao() {
       <p class="fraco" id="aviso-fraca">${fraca ? `Mais fraca agora: <b>${escapar(fraca.nome)}</b>. ${escapar(fraca.dica)}` : ''}</p>
       <a class="botao secundario" href="https://redacaoparana.pr.gov.br/" target="_blank" rel="noopener"
          style="margin-top:12px">Abrir o Redação Paraná</a>
+    </div>
+
+    <div class="cartao">
+      <h3>Seu modelo de redação</h3>
+      <p class="fraco">A estrutura que você segue ao escrever. Deixe aberta numa
+      aba enquanto redige — decorar o esqueleto é o que faz você parar de perder
+      tempo pensando em como começar cada parágrafo.</p>
+      <textarea id="in-modelo" rows="14" spellcheck="false"
+        placeholder="Escreva aqui a sua estrutura...">${escapar(e.redacao?.modelo ?? MODELO_REDACAO)}</textarea>
+      <div class="linha-botoes" style="margin-top:10px">
+        <button class="secundario" id="btn-modelo-padrao">Restaurar sugestão</button>
+        <button class="secundario" id="btn-copiar-modelo">Copiar</button>
+      </div>
+      <p class="fraco" id="modelo-status"></p>
     </div>
 
     <div class="cartao">
@@ -1068,6 +1126,33 @@ function desenharRedacao() {
       est.sincronizar();
     };
   });
+
+  const campoModelo = $('#in-modelo');
+  const statusModelo = $('#modelo-status');
+  let guardarModelo = null;
+  campoModelo.oninput = () => {
+    // Salva depois que a digitação para: gravar a cada tecla trava em texto longo.
+    clearTimeout(guardarModelo);
+    statusModelo.textContent = 'salvando…';
+    guardarModelo = setTimeout(() => {
+      e.redacao = { ...(e.redacao || {}), modelo: campoModelo.value };
+      est.salvarLocal(); est.sincronizar();
+      statusModelo.textContent = 'salvo';
+    }, 600);
+  };
+  $('#btn-modelo-padrao').onclick = () => {
+    campoModelo.value = MODELO_REDACAO;
+    campoModelo.dispatchEvent(new Event('input'));
+  };
+  $('#btn-copiar-modelo').onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(campoModelo.value);
+      statusModelo.textContent = 'copiado';
+    } catch {
+      campoModelo.select();
+      statusModelo.textContent = 'selecionado — use Ctrl+C';
+    }
+  };
 
   $('#sel-minutos').onchange = (ev) => {
     e.redacao.minutos = Number(ev.target.value);
@@ -1530,5 +1615,8 @@ async function principal() {
     else { ir('entrar'); desenharEntrar(); }
   }
 }
+
+// Avisa a rede de segurança do index.html que os módulos carregaram.
+window.__appIniciou = true;
 
 principal();

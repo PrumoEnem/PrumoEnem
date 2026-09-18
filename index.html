@@ -113,6 +113,40 @@
   </button>
 </nav>
 
+<!--
+  Rede de segurança contra tela branca. Erro de sintaxe num módulo derruba a
+  importação inteira em silêncio: a página carrega, nada aparece, e só o
+  console conta o motivo. Este script não é módulo, então roda mesmo quando
+  os módulos falham, e transforma o nada numa mensagem com instrução.
+-->
+<div id="socorro" hidden>
+  <h2>O app não conseguiu iniciar</h2>
+  <p>Um dos arquivos de código não carregou. Quase sempre é erro de digitação
+     em <code>js/config.js</code> — uma aspa faltando derruba tudo.</p>
+  <p id="socorro-detalhe" class="fraco"></p>
+  <p class="fraco">Abra o console do navegador (F12) para ver a linha exata.</p>
+  <button onclick="location.reload()">Tentar de novo</button>
+</div>
+
+<script>
+  window.__erroDeCarga = null;
+  window.addEventListener('error', (ev) => {
+    if (ev.filename && /\.js(\?|$)/.test(ev.filename)) {
+      window.__erroDeCarga = `${ev.filename.split('/').pop()}, linha ${ev.lineno}: ${ev.message}`;
+    }
+  }, true);
+
+  setTimeout(() => {
+    if (window.__appIniciou) return;
+    const caixa = document.getElementById('socorro');
+    if (!caixa) return;
+    caixa.hidden = false;
+    document.getElementById('socorro-detalhe').textContent =
+      window.__erroDeCarga ? `Detalhe: ${window.__erroDeCarga}` : '';
+    document.querySelector('.nav')?.setAttribute('hidden', '');
+  }, 4000);
+</script>
+
 <script type="module" src="js/app.js"></script>
 </body>
 </html>

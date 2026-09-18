@@ -22,11 +22,22 @@ async function pedir(rota, corpo) {
     throw erro;
   }
 
-  const resposta = await fetch(`${URL_WORKER}${rota}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify(corpo),
-  });
+  let resposta;
+  try {
+    resposta = await fetch(`${URL_WORKER}${rota}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(corpo),
+    });
+  } catch (falha) {
+    // "Failed to fetch" cru não ajuda ninguém: o navegador usa a mesma
+    // mensagem para internet caída, endereço errado e bloqueio de CORS.
+    throw new Error(
+      'Não consegui falar com o servidor da IA. Verifique se você está online e ' +
+      'se o endereço do site está na lista ORIGENS do Worker — depois de mudá-la, ' +
+      'é preciso publicar o Worker de novo.'
+    );
+  }
 
   let dados = null;
   try { dados = await resposta.json(); } catch { /* resposta sem corpo */ }
