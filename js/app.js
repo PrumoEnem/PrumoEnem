@@ -9,10 +9,17 @@ import * as nuvem from './nuvem.js';
 import * as ia from './ia.js';
 import * as red from './redacao.js';
 import * as rev from './revisao.js';
+import { abrirPomodoro } from './pomodoro.js';
 import { MODO_LOCAL, DOMINIO_PERMITIDO } from './config.js';
 
 const $ = (s) => document.querySelector(s);
 const SEGUNDOS_POR_QUESTAO = 180;
+const dataLocal = (data = new Date()) => {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const dia = String(data.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+};
 
 const escapar = (t) => String(t ?? '').replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -127,6 +134,28 @@ function desenharEntrar() {
 
 // ---------------------------------------------------------------- painel
 
+function atalhoIntensivo() {
+  const sprint = est.estado.intensivo || {};
+  const dia = diaAtualIntensivo(sprint);
+  const texto = sprint.inicio && dia >= 1 && dia <= 10
+    ? `Modo intensivo ativo · dia ${dia} de 10.`
+    : 'Monte um plano de revisão para os próximos 10 dias.';
+  return `<div class="cartao">
+    <h3>Reta final do ENEM</h3>
+    <p class="fraco">${texto}</p>
+    <button class="secundario" id="btn-abrir-intensivo">Abrir plano intensivo</button>
+  </div>`;
+}
+
+function atalhoPomodoro() {
+  return `<div class="cartao foco-card">
+    <span class="foco-selo">MODO FOCO</span>
+    <h3>Uma etapa de cada vez</h3>
+    <p class="fraco">Pomodoro em janela separada, com ruído marrom opcional e desligado por padrão.</p>
+    <button class="primario" id="btn-abrir-pomodoro">Abrir Pomodoro</button>
+  </div>`;
+}
+
 function desenharPainel() {
   const e = est.estado;
   const ofensiva = est.ofensivaViva();
@@ -140,11 +169,15 @@ function desenharPainel() {
 
   if (!e.alvo.pesos) {
     $('#painel-conteudo').innerHTML = `
+      ${atalhoIntensivo()}
+      ${atalhoPomodoro()}
       <div class="vazio">
         <h3>Escolha seu curso primeiro</h3>
         <p class="fraco">Os pesos do SiSU definem quanto cada área vale para você.</p>
         <button class="primario" onclick="document.querySelector('[data-ir=perfil]').click()">Escolher curso</button>
       </div>`;
+    $('#btn-abrir-intensivo').onclick = () => ir('plano');
+    $('#btn-abrir-pomodoro').onclick = abrirPomodoro;
     return;
   }
 
@@ -152,7 +185,7 @@ function desenharPainel() {
   const medidas = AREAS.filter((a) => e.thetas[a]);
   const meta = e.metaSemanal;
 
-  let html = '';
+  let html = atalhoIntensivo() + atalhoPomodoro();
 
   if (medidas.length) {
     const media = simulacao.media;
@@ -204,6 +237,8 @@ function desenharPainel() {
 
   html += `<button class="primario" id="btn-estudar">Começar sessão</button>`;
   $('#painel-conteudo').innerHTML = html;
+  $('#btn-abrir-intensivo').onclick = () => ir('plano');
+  $('#btn-abrir-pomodoro').onclick = abrirPomodoro;
   $('#btn-estudar').onclick = () => { sessao = null; ir('sessao'); };
 }
 
@@ -336,9 +371,26 @@ async function montarEIniciar() {
   const deRevisao = [];
   for (const item of daFila) {
     try {
-      const banco = await carregarQuestoes(item.area);
-      const q = banco.find((x) => x.id === item.id);
-      if (q) deRevisao.push(rev.embaralharAlternativas(q));
+      let q = null;
+      let qComTrecho = null;
+      let qComGabarito = null;
+      const areasBusca = [item.area, ...AREAS.filter((a) => a !== item.area)];
+      for (const areaBusca of areasBusca) {
+        if (!AREAS.includes(areaBusca)) continue;
+        const banco = await carregarQuestoes(areaBusca);
+        const candidatas = banco.filter((x) => x.id === item.id || x.id.startsWith(`${item.id}-`));
+        qComTrecho ||= candidatas.find((x) =>
+          x.gabarito === item.gabarito && rev.resumirEnunciado(x.enunciado) === item.trecho
+        ) || null;
+        qComGabarito ||= candidatas.find((x) => x.gabarito === item.gabarito) || null;
+        q ||= candidatas[0] || null;
+      }
+      q = qComTrecho || qComGabarito || q;
+      if (q) {
+        item.id = q.id;
+        item.area = q.area || item.area;
+        deRevisao.push(rev.embaralharAlternativas(q));
+      }
     } catch { /* área indisponível: ignora esta */ }
   }
 
@@ -626,11 +678,13 @@ async function finalizarSessao() {
     emBranco: !s.respostas[i],
   }));
 
+  const respostasDaArea = s.respostas.filter((r) => (r.questao.area || s.area) === s.area);
+  const acertosDaArea = respostasDaArea.filter((r) => r.acertou).length;
   const acertos = s.respostas.filter((r) => r.acertou).length;
 
   // Proficiência: TRI de verdade quando há parâmetros, aproximação quando não.
-  let estimativa = estimarTheta(s.respostas.map((r) => ({ tri: r.questao.tri, acertou: r.acertou })));
-  if (!estimativa) estimativa = estimarPorAcertos(acertos, s.respostas.length);
+  let estimativa = estimarTheta(respostasDaArea.map((r) => ({ tri: r.questao.tri, acertou: r.acertou })));
+  if (!estimativa) estimativa = estimarPorAcertos(acertosDaArea, respostasDaArea.length);
   if (estimativa) {
     const anterior = e.thetas[s.area];
     e.thetas[s.area] = atualizarTheta(anterior, estimativa);
@@ -639,7 +693,8 @@ async function finalizarSessao() {
   }
 
   // Vocabulário
-  const rv = s.respostaVocabulario;
+  const rv = s.respostaVocabulario || { item: s.vocabulario, escolha: null, acertou: false };
+  s.respostaVocabulario = rv;
   e.vocabulario[rv.item.id] = srs.atualizarVocabulario(e.vocabulario[rv.item.id] || {}, rv.acertou);
 
   // Fila de revisão: errou entra, acertou sai.
@@ -649,9 +704,22 @@ async function finalizarSessao() {
     else e.errosPendentes = rev.registrarErro(e.errosPendentes, r.questao, r.marcada);
   }
 
-  est.marcarVistas(s.area, s.respostas.map((r) => r.questao.id));
+  const vistasPorArea = new Map();
+  for (const r of s.respostas) {
+    const area = r.questao.area || s.area;
+    if (!AREAS.includes(area)) continue;
+    if (!vistasPorArea.has(area)) vistasPorArea.set(area, []);
+    vistasPorArea.get(area).push(r.questao.id);
+  }
+  for (const [area, ids] of vistasPorArea) est.marcarVistas(area, ids);
   e.sessoes.push({ id: s.id, data: new Date().toISOString(), area: s.area, acertos, total: s.respostas.length });
   e.sessoes = e.sessoes.slice(-120);
+  if (e.intensivo?.inicio) {
+    const diaDoPlano = diaAtualIntensivo(e.intensivo);
+    if (diaDoPlano >= 1 && diaDoPlano <= 10) {
+      e.intensivo.diasConcluidos = [...new Set([...(e.intensivo.diasConcluidos || []), dataLocal()])];
+    }
+  }
   est.registrarDiaEstudado();
   est.salvarLocal();
   est.sincronizar();
@@ -726,12 +794,27 @@ async function carregarExplicacoes(erros) {
       <div class="explicacao" id="exp-${i}">${ia.iaDisponivel() ? 'Carregando explicação…' : ''}</div>
     </div>`).join('');
 
-  let resultado;
-  try {
-    resultado = await ia.explicarErros(erros, sessao.area);
-  } catch (err) {
-    resultado = { explicacoes: [], flashcards: [], aviso: err.message };
+  const resultado = { explicacoes: [], flashcards: [] };
+  const avisos = [];
+  const grupos = new Map();
+  for (const erro of erros) {
+    const area = erro.questao.area || sessao.area;
+    if (!grupos.has(area)) grupos.set(area, []);
+    grupos.get(area).push(erro);
   }
+  for (const [area, grupo] of grupos) {
+    for (let i = 0; i < grupo.length; i += 12) {
+      try {
+        const parcial = await ia.explicarErros(grupo.slice(i, i + 12), NOME_AREA[area] || area);
+        resultado.explicacoes.push(...(parcial.explicacoes || []));
+        resultado.flashcards.push(...(parcial.flashcards || []));
+        if (parcial.aviso) avisos.push(parcial.aviso);
+      } catch (err) {
+        avisos.push(err.message);
+      }
+    }
+  }
+  if (avisos.length) resultado.aviso = [...new Set(avisos)].join(' ');
 
   erros.forEach((r, i) => {
     const caixa = $(`#exp-${i}`);
@@ -787,15 +870,27 @@ function verificarLiberacao(totalErros) {
 // ---------------------------------------------------------------- flashcards
 
 let abaRevisao = 'revisar';
+let filaFlashcards = [];
+let indiceFlashcard = 0;
+let flashcardVirado = false;
+let flashcardsEmRevisao = false;
+let flashcardsRevisadosSessao = 0;
+let flashcardsTotalSessao = 0;
+let flashcardsSessaoConcluida = false;
 
 function desenharCartoes() {
   const alvo = $('#cartoes-conteudo');
   const fila = est.estado.errosPendentes || [];
+  const totalCartoes = est.estado.flashcards.length;
+  const vencidos = srs.vencidos(est.estado.flashcards).length;
 
   alvo.innerHTML = `
     <div class="abas" id="abas-revisao">
       <button class="${abaRevisao === 'revisar' ? 'ativa' : ''}" data-aba="revisar">
         Errei${fila.length ? ` <i>${fila.length}</i>` : ''}
+      </button>
+      <button class="${abaRevisao === 'flashcards' ? 'ativa' : ''}" data-aba="flashcards">
+        Flashcards${totalCartoes ? ` <i>${totalCartoes}</i>` : ''}
       </button>
       <button class="${abaRevisao === 'resumos' ? 'ativa' : ''}" data-aba="resumos">
         Resumos${est.estado.resumos?.length ? ` <i>${est.estado.resumos.length}</i>` : ''}
@@ -808,9 +903,158 @@ function desenharCartoes() {
     b.onclick = () => { abaRevisao = b.dataset.aba; desenharCartoes(); };
   });
 
+  if (abaRevisao === 'flashcards') return desenharFlashcards();
   if (abaRevisao === 'resumos') return desenharResumos();
   if (abaRevisao === 'provas') return desenharProvas();
   desenharErrosPendentes();
+}
+
+function desenharFlashcards() {
+  const corpo = $('#revisao-corpo');
+  const cartoes = est.estado.flashcards;
+
+  // Dá um identificador estável aos cartões antigos que vieram sem ID.
+  const ids = new Set();
+  for (const [i, cartao] of cartoes.entries()) {
+    if (!cartao.id || ids.has(cartao.id)) cartao.id = `fc-${Date.now()}-${i}`;
+    ids.add(cartao.id);
+    cartao.proximaRevisao ||= dataLocal();
+    cartao.intervalo ??= 0;
+    cartao.facilidade ??= 2.5;
+    cartao.repeticoes ??= 0;
+  }
+
+  if (flashcardsEmRevisao && filaFlashcards.length) {
+    return desenharCartaoAtual();
+  }
+
+  flashcardsEmRevisao = false;
+  const vencidos = srs.vencidos(cartoes).length;
+  corpo.innerHTML = `
+    ${flashcardsSessaoConcluida ? `<div class="flash-resultado"><b>Revisão concluída!</b><span>${flashcardsRevisadosSessao} ${flashcardsRevisadosSessao === 1 ? 'cartão revisado' : 'cartões revisados'} — bom trabalho, mantenha a sequência.</span></div>` : ''}
+    <div class="cartao flash-resumo">
+      <span class="foco-selo">REVISÃO ESPAÇADA</span>
+      <h3>Se lembrar, fixe. Se esquecer, revise de novo.</h3>
+      <div class="flash-estatisticas">
+        <div><b>${cartoes.length}</b><span>no baralho</span></div>
+        <div><b>${vencidos}</b><span>para revisar hoje</span></div>
+      </div>
+      <div class="linha-botoes">
+        <button class="primario" id="btn-comecar-flash" ${cartoes.length ? '' : 'disabled'}>
+          ${vencidos ? `Revisar ${vencidos} vencido${vencidos === 1 ? '' : 's'}` : 'Estudar cartões'}
+        </button>
+        ${vencidos && cartoes.length > vencidos ? '<button class="secundario" id="btn-estudar-todos">Estudar todos</button>' : ''}
+      </div>
+      ${cartoes.length ? '' : '<p class="fraco flash-vazio">Seu baralho está vazio. Crie cartões ou marque conceitos ao terminar uma sessão.</p>'}
+    </div>
+    <div class="cartao">
+      <h3>Crie seu próprio cartão</h3>
+      <p class="fraco">Pergunte na frente e escreva uma resposta curta no verso.</p>
+      <button class="secundario" id="btn-mostrar-form-cartao" aria-expanded="false">＋ Novo flashcard</button>
+      <form id="form-flashcard" class="form-flashcard" hidden>
+        <label for="flash-frente">Frente</label>
+        <textarea id="flash-frente" rows="2" maxlength="500" required placeholder="Ex.: O que é a primeira lei de Newton?"></textarea>
+        <label for="flash-verso">Verso</label>
+        <textarea id="flash-verso" rows="3" maxlength="1200" required placeholder="Escreva a resposta com suas palavras"></textarea>
+        <label for="flash-conceito">Matéria ou conceito <span class="fraco">(opcional)</span></label>
+        <input id="flash-conceito" maxlength="80" placeholder="Ex.: Física · Dinâmica">
+        <button class="primario" type="submit">Salvar flashcard</button>
+      </form>
+    </div>`;
+
+  $('#btn-comecar-flash').onclick = () => iniciarRevisaoFlashcards(vencidos === 0);
+  $('#btn-estudar-todos')?.addEventListener('click', () => iniciarRevisaoFlashcards(true));
+  const form = $('#form-flashcard');
+  const botaoNovo = $('#btn-mostrar-form-cartao');
+  botaoNovo.onclick = () => {
+    form.hidden = !form.hidden;
+    botaoNovo.setAttribute('aria-expanded', String(!form.hidden));
+    botaoNovo.textContent = form.hidden ? '＋ Novo flashcard' : 'Fechar formulário';
+    if (!form.hidden) $('#flash-frente').focus();
+  };
+  form.onsubmit = (ev) => {
+    ev.preventDefault();
+    const frente = $('#flash-frente').value.trim();
+    const verso = $('#flash-verso').value.trim();
+    if (!frente || !verso) return;
+    cartoes.push(srs.novoCartao({
+      id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      frente, verso, conceito: $('#flash-conceito').value.trim() || 'Meu cartão',
+      origem: 'manual',
+    }));
+    est.salvarLocal();
+    est.sincronizar();
+    desenharCartoes();
+  };
+}
+
+function iniciarRevisaoFlashcards(todos) {
+  const vencidos = srs.vencidos(est.estado.flashcards);
+  filaFlashcards = (todos ? est.estado.flashcards : vencidos).map((c) => c.id);
+  indiceFlashcard = 0;
+  flashcardVirado = false;
+  flashcardsEmRevisao = filaFlashcards.length > 0;
+  flashcardsRevisadosSessao = 0;
+  flashcardsTotalSessao = filaFlashcards.length;
+  flashcardsSessaoConcluida = false;
+  desenharCartoes();
+}
+
+function desenharCartaoAtual() {
+  const corpo = $('#revisao-corpo');
+  const id = filaFlashcards[indiceFlashcard];
+  const cartao = est.estado.flashcards.find((c) => c.id === id);
+  if (!cartao) {
+    filaFlashcards = filaFlashcards.filter((x) => est.estado.flashcards.some((c) => c.id === x));
+    if (indiceFlashcard >= filaFlashcards.length) indiceFlashcard = 0;
+    if (!filaFlashcards.length) { flashcardsEmRevisao = false; return desenharFlashcards(); }
+    return desenharCartaoAtual();
+  }
+
+  const progresso = Math.min(100, Math.round(((indiceFlashcard + 1) / filaFlashcards.length) * 100));
+  corpo.innerHTML = `
+    <div class="flash-progresso-linha"><span>Cartão ${indiceFlashcard + 1} de ${filaFlashcards.length}</span><button class="texto-botao" id="btn-sair-flash">Sair da revisão</button></div>
+    <div class="barra"><i style="width:${progresso}%"></i></div>
+    <article class="flashcard-face">
+      <span class="foco-selo">${escapar(cartao.conceito || 'FLASHCARD')}</span>
+      <div class="flash-pergunta">${escapar(cartao.frente || 'Sem pergunta')}</div>
+      <div id="flash-resposta" class="flash-resposta" ${flashcardVirado ? '' : 'hidden'}>
+        <span class="flash-divisor">RESPOSTA</span>
+        <p>${escapar(cartao.verso || 'Este cartão não tem resposta cadastrada.')}</p>
+      </div>
+    </article>
+    <button class="primario flash-virar" id="btn-virar" ${flashcardVirado ? 'hidden' : ''}>Virar cartão</button>
+    <div id="notas-acoes" ${flashcardVirado ? '' : 'hidden'}>
+      <p class="fraco centro">Como foi sua lembrança? (atalhos: 1 a 4)</p>
+      <div id="notas" class="conceito-acoes flash-notas" ${flashcardVirado ? '' : 'hidden'}>
+        <button class="secundario" data-nota="0"><b>1 · Errei</b><small>Rever hoje</small></button>
+        <button class="secundario" data-nota="1"><b>2 · Difícil</b><small>Rever em breve</small></button>
+        <button class="secundario" data-nota="2"><b>3 · Lembrei</b><small>Espaçar revisão</small></button>
+        <button class="secundario" data-nota="3"><b>4 · Fácil</b><small>Espaçar mais</small></button>
+      </div>
+    </div>`;
+
+  $('#btn-sair-flash').onclick = () => { flashcardsEmRevisao = false; desenharCartoes(); };
+  $('#btn-virar').onclick = () => { flashcardVirado = true; desenharCartoes(); };
+  corpo.querySelectorAll('[data-nota]').forEach((b) => {
+    b.onclick = () => avaliarFlashcard(cartao, Number(b.dataset.nota));
+  });
+}
+
+function avaliarFlashcard(cartao, qualidade) {
+  const indice = est.estado.flashcards.indexOf(cartao);
+  if (indice < 0) return desenharCartoes();
+  est.estado.flashcards[indice] = srs.revisar(cartao, qualidade);
+  indiceFlashcard += 1;
+  flashcardsRevisadosSessao += 1;
+  flashcardVirado = false;
+  if (indiceFlashcard >= filaFlashcards.length) {
+    flashcardsEmRevisao = false;
+    flashcardsSessaoConcluida = flashcardsRevisadosSessao === flashcardsTotalSessao;
+  }
+  est.salvarLocal();
+  est.sincronizar();
+  desenharCartoes();
 }
 
 /**
@@ -1108,7 +1352,11 @@ function desenharRedacao() {
         e.redacao.competencias[campo.dataset.comp] = v;
       }
       // O total alimenta a média ponderada do SiSU.
-      e.notaRedacao = red.somarCompetencias(e.redacao.competencias) || null;
+      const completa = red.COMPETENCIAS.every((c) => {
+        const nota = e.redacao.competencias[c.id];
+        return nota !== undefined && nota !== null && nota !== '';
+      });
+      e.notaRedacao = completa ? red.somarCompetencias(e.redacao.competencias) : null;
       e.redacao.ultimaAtualizacao = new Date().toISOString();
       atualizarDerivados();
       est.salvarLocal();
@@ -1193,6 +1441,114 @@ const DIAS = [
   { i: 5, curto: 'S', nome: 'Sexta' },
   { i: 6, curto: 'S', nome: 'Sábado' },
 ];
+
+const ETAPAS_INTENSIVAS = [
+  { titulo: 'Diagnóstico da área prioritária', questoes: 20, foco: 'Anote os assuntos que mais travaram.' },
+  { titulo: 'Segundo foco do plano', questoes: 20, foco: 'Revise os erros e os cartões vencidos.' },
+  { titulo: 'Terceiro foco do plano', questoes: 20, foco: 'Faça uma redação ou revise uma já corrigida.', redacao: true },
+  { titulo: 'Quarto foco do plano', questoes: 20, foco: 'Feche lacunas e releia suas anotações.' },
+  { titulo: 'Treino longo · área 1', questoes: 45, foco: 'Faça em tempo corrido, como treino de prova.' },
+  { titulo: 'Treino longo · área 2', questoes: 45, foco: 'Reserve um bloco para redação depois do treino.', redacao: true },
+  { titulo: 'Treino longo · área 3', questoes: 45, foco: 'Marque dúvidas e revise os erros no fim.' },
+  { titulo: 'Treino longo · área 4', questoes: 45, foco: 'Priorize ritmo e decisões de prova.' },
+  { titulo: 'Consolidar erros', questoes: 20, foco: 'Revise a fila de erros e faça uma redação.', redacao: true },
+  { titulo: 'Revisão leve e descanso', questoes: 9, foco: 'Revise cartões, documentos e logística; durma bem.', modo: 'livre' },
+];
+
+function diaAtualIntensivo(intensivo) {
+  if (!intensivo?.inicio) return 0;
+  const [ano, mes, dia] = intensivo.inicio.split('-').map(Number);
+  const [anoHoje, mesHoje, diaHoje] = dataLocal().split('-').map(Number);
+  const inicioUtc = Date.UTC(ano, mes - 1, dia);
+  const hojeUtc = Date.UTC(anoHoje, mesHoje - 1, diaHoje);
+  return Math.floor((hojeUtc - inicioUtc) / 86400000) + 1;
+}
+
+function avancarData(chave, dias) {
+  const [ano, mes, dia] = chave.split('-').map(Number);
+  const data = new Date(ano, mes - 1, dia);
+  data.setDate(data.getDate() + dias);
+  return dataLocal(data);
+}
+
+function etapaIntensiva(dia, prioridades) {
+  const base = ETAPAS_INTENSIVAS[dia - 1];
+  const ordem = prioridades.map((p) => p.area);
+  const indiceArea = dia <= 4 ? dia - 1 : dia <= 8 ? dia - 5 : 0;
+  const area = ordem[indiceArea] || ordem[0] || AREAS[0];
+  return { ...base, area, modo: base.modo || 'total' };
+}
+
+function cartaoIntensivo(prioridades) {
+  const sprint = est.estado.intensivo || { inicio: null, diasConcluidos: [] };
+  if (!sprint.inicio) {
+    return `<div class="cartao">
+      <h3>Modo intensivo · 10 dias</h3>
+      <p class="fraco">Um sprint com foco nas quatro áreas, treinos longos, revisão dos erros e uma reta final leve. A etapa do dia se adapta às prioridades do seu curso.</p>
+      <button class="primario" id="btn-ativar-intensivo">Ativar meu plano de 10 dias</button>
+    </div>`;
+  }
+
+  const dia = diaAtualIntensivo(sprint);
+  const concluidos = sprint.diasConcluidos || [];
+  const fim = avancarData(sprint.inicio, 9);
+  const feitos = concluidos.filter((data) => data >= sprint.inicio && data <= fim).length;
+  const ativo = dia >= 1 && dia <= 10;
+  const etapa = ativo ? etapaIntensiva(dia, prioridades) : null;
+  const linhas = ETAPAS_INTENSIVAS.map((item, i) => {
+    const numero = i + 1;
+    const data = avancarData(sprint.inicio, i);
+    const area = etapaIntensiva(numero, prioridades).area;
+    const feito = concluidos.includes(data);
+    return `<div class="linha-area">
+      <div class="rotulo"><b>Dia ${numero} · ${escapar(item.titulo)}</b>
+        <span class="fraco">${data} · ${NOME_AREA[area]} · ${item.questoes} questões${item.redacao ? ' + redação' : ''}</span>
+      </div>
+      <div class="pct numero">${feito ? '✓' : numero === dia ? 'Hoje' : '·'}</div>
+    </div>`;
+  }).join('');
+
+  return `<div class="cartao">
+    <div class="linha-area"><div class="rotulo"><h3>Modo intensivo · dia ${ativo ? dia : 'finalizado'} de 10</h3>
+      <span class="fraco">${feitos} de 10 etapas concluídas</span></div>
+      <div class="pct numero">${Math.min(100, Math.round(feitos * 10))}%</div></div>
+    <div class="barra"><i style="width:${Math.min(100, feitos * 10)}%"></i></div>
+    ${ativo ? `<p class="fraco"><b>${escapar(etapa.titulo)}</b> · ${NOME_AREA[etapa.area]} · ${etapa.questoes} questões. ${escapar(etapa.foco)}</p>
+      <button class="primario" id="btn-etapa-intensiva">${concluidos.includes(dataLocal()) ? 'Fazer outro treino de hoje' : 'Começar treino de hoje'}</button>`
+      : '<p class="fraco">O ciclo de 10 dias terminou. Você pode reiniciar quando quiser.</p>'}
+    <details style="margin-top:14px"><summary>Ver as 10 etapas</summary><div style="margin-top:10px">${linhas}</div></details>
+    <button class="secundario" id="btn-reiniciar-intensivo" style="margin-top:12px">Reiniciar plano de 10 dias</button>
+    <button class="secundario" id="btn-desativar-intensivo" style="margin-top:8px">Desativar modo intensivo</button>
+  </div>`;
+}
+
+function ligarIntensivo(prioridades) {
+  const ativar = () => {
+    est.estado.intensivo = { inicio: dataLocal(), diasConcluidos: [] };
+    est.salvarLocal(); est.sincronizar(); desenharPlano();
+  };
+  if ($('#btn-ativar-intensivo')) $('#btn-ativar-intensivo').onclick = ativar;
+  if ($('#btn-reiniciar-intensivo')) $('#btn-reiniciar-intensivo').onclick = ativar;
+  if ($('#btn-desativar-intensivo')) $('#btn-desativar-intensivo').onclick = () => {
+    est.estado.intensivo = { inicio: null, diasConcluidos: [] };
+    est.salvarLocal(); est.sincronizar(); desenharPlano();
+  };
+  if ($('#btn-etapa-intensiva')) $('#btn-etapa-intensiva').onclick = () => {
+    const dia = diaAtualIntensivo(est.estado.intensivo);
+    if (dia < 1 || dia > 10) return;
+    const etapa = etapaIntensiva(dia, prioridades);
+    est.estado.preferenciaSessao = {
+      ...(est.estado.preferenciaSessao || {}),
+      area: etapa.area,
+      tamanho: etapa.questoes,
+      modo: etapa.modo,
+    };
+    est.salvarLocal();
+    sessao = null;
+    ir('sessao');
+    montarEIniciar();
+  };
+}
 
 /**
  * Distribui as áreas pelos dias em que você estuda, na proporção da
@@ -1295,11 +1651,17 @@ function ligarRotina(prioridades) {
 
 function desenharPlano() {
   const e = est.estado;
-  if (!e.alvo.pesos) { $('#plano-conteudo').innerHTML = '<p class="fraco">Escolha seu curso no perfil.</p>'; return; }
+  const pesos = e.alvo.pesos || Object.fromEntries(AREAS.map((area) => [area, 1]));
+  const prioridades = calcularPrioridades(pesos, e.thetas);
+  let html = cartaoIntensivo(prioridades);
 
-  const prioridades = calcularPrioridades(e.alvo.pesos, e.thetas);
+  if (!e.alvo.pesos) {
+    $('#plano-conteudo').innerHTML = `${html}<p class="fraco">Escolha seu curso no perfil para personalizar as prioridades do plano.</p>`;
+    ligarIntensivo(prioridades);
+    return;
+  }
 
-  let html = cartaoRotina(prioridades);
+  html += cartaoRotina(prioridades);
 
   html += `<div class="cartao">
     <h3>Divisão do seu tempo</h3>
@@ -1335,6 +1697,7 @@ function desenharPlano() {
 
   $('#plano-conteudo').innerHTML = html;
   ligarRotina(prioridades);
+  ligarIntensivo(prioridades);
 }
 
 // ---------------------------------------------------------------- perfil
@@ -1472,9 +1835,15 @@ function desenharPerfil() {
   $('#btn-offline').onclick = async () => {
     const status = $('#offline-status');
     status.textContent = 'Baixando…';
-    const { prepararOffline } = await import('./dados.js');
-    await prepararOffline((p) => { status.textContent = `Baixando… ${Math.round(p * 100)}%`; });
-    status.textContent = 'Pronto. O app agora abre sem internet.';
+    try {
+      const { prepararOffline } = await import('./dados.js');
+      const resultado = await prepararOffline((p) => { status.textContent = `Baixando bancos e imagens… ${Math.round(p * 100)}%`; });
+      status.textContent = resultado.falhas
+        ? `Bancos prontos; ${resultado.imagens} imagens guardadas e ${resultado.falhas} não baixaram. As imagens pendentes precisam de internet.`
+        : `Pronto. Bancos e ${resultado.imagens} imagens guardados para uso offline.`;
+    } catch (err) {
+      status.textContent = `Não consegui preparar o modo offline: ${err.message}`;
+    }
   };
   if ($('#btn-sair')) $('#btn-sair').onclick = () => nuvem.sair().then(() => location.reload());
   if ($('#btn-sair-conta')) $('#btn-sair-conta').onclick = () => nuvem.sair().then(() => location.reload());
@@ -1587,7 +1956,7 @@ async function principal() {
 
   // Modo local: quem já usou antes entra direto, sem passar pela porta.
   if (!nuvem.nuvemAtiva()) {
-    if (est.estado.uid) { await est.puxarDaNuvem('local'); await abrirApp(); }
+    if (est.estado.uid === 'local') { await est.puxarDaNuvem('local'); await abrirApp(); }
     else { ir('entrar'); desenharEntrar(); }
     return;
   }
@@ -1611,7 +1980,7 @@ async function principal() {
   // O SDK não veio: segue em modo local para o app não ficar em branco.
   if (!conectou) {
     quedaParaLocal = true;
-    if (est.estado.uid) { await est.puxarDaNuvem(est.estado.uid); await abrirApp(); }
+    if (est.estado.uid === 'local') { await est.puxarDaNuvem('local'); await abrirApp(); }
     else { ir('entrar'); desenharEntrar(); }
   }
 }

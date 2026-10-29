@@ -7,15 +7,31 @@
  */
 
 import * as nuvem from './nuvem.js';
-import { AREAS } from './dados.js';
+import { AREAS, CORRECOES_AREA } from './dados.js';
 
 const CHAVE = 'enem-plataforma-v1';
-const hoje = () => new Date().toISOString().slice(0, 10);
+const CHAVE_LOCAL = `${CHAVE}:local`;
+const chaveUsuario = (uid) => `${CHAVE}:${encodeURIComponent(uid)}`;
+const lerSalvo = (chave) => {
+  try {
+    const bruto = localStorage.getItem(chave);
+    return bruto ? JSON.parse(bruto) : null;
+  } catch {
+    return null;
+  }
+};
+const dataLocal = (data = new Date()) => {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const dia = String(data.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+};
+const hoje = () => dataLocal();
 
 const ontem = () => {
   const d = new Date();
   d.setDate(d.getDate() - 1);
-  return d.toISOString().slice(0, 10);
+  return dataLocal(d);
 };
 
 function estadoInicial() {
@@ -26,6 +42,7 @@ function estadoInicial() {
     notaRedacao: null,
     redacao: { competencias: {}, ultimaAtualizacao: null, tempos: [] },
     preferenciaSessao: null,
+    intensivo: { inicio: null, diasConcluidos: [] },
     nome: null,
     foto: null,
     plano: 'gratuito',
@@ -45,27 +62,80 @@ function estadoInicial() {
 
 export let estado = estadoInicial();
 
-export function carregarLocal() {
-  try {
-    const bruto = localStorage.getItem(CHAVE);
-    if (bruto) estado = { ...estadoInicial(), ...JSON.parse(bruto) };
-  } catch {
-    estado = estadoInicial();
+function normalizarEstado() {
+  if (!estado || typeof estado !== 'object') estado = estadoInicial();
+  estado = { ...estadoInicial(), ...estado };
+  if (!estado.redacao || typeof estado.redacao !== 'object') estado.redacao = estadoInicial().redacao;
+  estado.redacao.competencias ||= {};
+  if (!estado.questoesVistas || typeof estado.questoesVistas !== 'object' || Array.isArray(estado.questoesVistas)) {
+    estado.questoesVistas = {};
   }
+  if (!estado.vocabulario || typeof estado.vocabulario !== 'object' || Array.isArray(estado.vocabulario)) {
+    estado.vocabulario = {};
+  }
+  estado.errosPendentes = Array.isArray(estado.errosPendentes) ? estado.errosPendentes : [];
+  estado.flashcards = Array.isArray(estado.flashcards) ? estado.flashcards : [];
+  estado.resumos = Array.isArray(estado.resumos) ? estado.resumos : [];
+  estado.sessoes = Array.isArray(estado.sessoes) ? estado.sessoes : [];
+  estado.intensivo = {
+    inicio: estado.intensivo?.inicio || null,
+    diasConcluidos: Array.isArray(estado.intensivo?.diasConcluidos)
+      ? [...new Set(estado.intensivo.diasConcluidos)] : [],
+  };
+
+  for (const area of AREAS) {
+    if (!Array.isArray(estado.questoesVistas[area])) estado.questoesVistas[area] = [];
+  }
+  for (const erro of estado.errosPendentes) {
+    if (!erro || typeof erro !== 'object') continue;
+    const correcao = CORRECOES_AREA[erro.id];
+    if (correcao && erro.area === correcao.de) {
+      erro.area = correcao.para;
+      if (correcao.idCorrigido) erro.id = correcao.idCorrigido;
+    }
+  }
+  for (const [id, correcao] of Object.entries(CORRECOES_AREA)) {
+    const antigas = estado.questoesVistas[correcao.de] || [];
+    if (!antigas.includes(id)) continue;
+    estado.questoesVistas[correcao.de] = antigas.filter((vista) => vista !== id);
+    const idCorrigido = correcao.idCorrigido || id;
+    estado.questoesVistas[correcao.para] = [...new Set([...(estado.questoesVistas[correcao.para] || []), idCorrigido])].slice(-600);
+  }
+
+  // A nota só pode entrar na simulação quando as cinco competências existem.
+  const competencias = estado.redacao?.competencias || {};
+  const ids = ['c1', 'c2', 'c3', 'c4', 'c5'];
+  const completa = ids.every((id) => competencias[id] !== undefined && competencias[id] !== null && competencias[id] !== '');
+  estado.notaRedacao = completa
+    ? ids.reduce((soma, id) => soma + (Number(competencias[id]) || 0), 0)
+    : null;
+}
+
+export function carregarLocal() {
+  const legado = lerSalvo(CHAVE);
+  const local = lerSalvo(CHAVE_LOCAL);
+  // A chave antiga podia conter dados de uma conta. Só carregamos dela antes
+  // da autenticação se não estiver vinculada a um usuário.
+  const estadoLocal = local && (!local.uid || local.uid === 'local') ? local : null;
+  const inicial = estadoLocal || (legado && (!legado.uid || legado.uid === 'local') ? legado : null);
+  estado = inicial ? { ...estadoInicial(), ...inicial } : estadoInicial();
+  if (inicial && !estado.uid) estado.uid = 'local';
   for (const area of AREAS) if (!estado.questoesVistas[area]) estado.questoesVistas[area] = [];
+  normalizarEstado();
   return estado;
 }
 
 export function salvarLocal() {
   try {
-    localStorage.setItem(CHAVE, JSON.stringify(estado));
+    const chave = !estado.uid || estado.uid === 'local' ? CHAVE_LOCAL : chaveUsuario(estado.uid);
+    localStorage.setItem(chave, JSON.stringify(estado));
   } catch (e) {
     console.warn('Armazenamento local cheio.', e);
   }
 }
 
 export async function sincronizar() {
-  if (!nuvem.nuvemAtiva() || !estado.uid) return;
+  if (!nuvem.nuvemAtiva() || !estado.uid || estado.uid === 'local') return;
   try {
     await nuvem.salvarPerfil(estado.uid, {
       alvo: estado.alvo,
@@ -73,6 +143,8 @@ export async function sincronizar() {
       ofensiva: estado.ofensiva,
       rotina: estado.rotina,
       metaSemanal: estado.metaSemanal,
+      intensivo: estado.intensivo,
+      sessoes: estado.sessoes,
       notaRedacao: estado.notaRedacao,
       redacao: estado.redacao,
       nome: estado.nome,
@@ -93,14 +165,31 @@ export async function sincronizar() {
 }
 
 export async function puxarDaNuvem(uid) {
-  estado.uid = uid;
-  if (!nuvem.nuvemAtiva()) return;
+  const legado = lerSalvo(CHAVE);
+  if (uid === 'local') {
+    const local = lerSalvo(CHAVE_LOCAL)
+      || (legado && (!legado.uid || legado.uid === 'local') ? legado : null);
+    estado = local ? { ...estadoInicial(), ...local, uid: 'local' } : { ...estadoInicial(), uid: 'local' };
+    normalizarEstado();
+    salvarLocal();
+    return;
+  }
+
+  const anterior = estado;
+  const salvoDaConta = lerSalvo(chaveUsuario(uid));
+  const legadoPertence = legado && (!legado.uid || legado.uid === 'local' || legado.uid === uid);
+  const origem = salvoDaConta || (legadoPertence ? legado : anterior.uid === 'local' ? anterior : null);
+  estado = origem ? { ...estadoInicial(), ...origem, uid } : { ...estadoInicial(), uid };
+  normalizarEstado();
+  if (!nuvem.nuvemAtiva()) { salvarLocal(); return; }
+
   const remoto = await nuvem.lerPerfil(uid);
   // O mais recente vence. Sem histórico de merge, é a regra menos surpreendente.
   if (remoto?.atualizadoEm && (!estado.ultimaSincronizacao || remoto.atualizadoEm > estado.ultimaSincronizacao)) {
     Object.assign(estado, remoto);
-    salvarLocal();
   }
+  normalizarEstado();
+  salvarLocal();
 }
 
 /** Ofensiva: conta dias corridos de estudo. Pular um dia zera. */
@@ -157,7 +246,9 @@ export async function importarBackup(arquivo) {
   const texto = await arquivo.text();
   const dados = JSON.parse(texto);
   if (!dados.versao) throw new Error('Esse arquivo não parece um backup da plataforma.');
-  estado = { ...estadoInicial(), ...dados };
+  const donoAtual = estado.uid || (!nuvem.nuvemAtiva() ? 'local' : null);
+  estado = { ...estadoInicial(), ...dados, uid: donoAtual };
+  normalizarEstado();
   salvarLocal();
   await sincronizar();
 }

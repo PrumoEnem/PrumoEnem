@@ -11,6 +11,13 @@
 
 const MAX_FILA = 60;
 
+const dataLocal = (data = new Date()) => {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const dia = String(data.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+};
+
 /** Quantas questões de revisão entram em cada sessão. */
 export const POR_SESSAO = 2;
 
@@ -18,7 +25,12 @@ export function registrarErro(fila, questao, marcada, explicacao = null) {
   const existente = fila.find((f) => f.id === questao.id);
   if (existente) {
     existente.tentativas += 1;
-    existente.ultimoErro = new Date().toISOString().slice(0, 10);
+    existente.area = questao.area || existente.area;
+    existente.ano = questao.ano ?? existente.ano;
+    existente.numero = questao.numero ?? existente.numero;
+    existente.gabarito = questao.gabarito || existente.gabarito;
+    existente.marcada = marcada || existente.marcada;
+    existente.ultimoErro = dataLocal();
     if (explicacao) existente.explicacao = explicacao;
     return fila;
   }
@@ -32,7 +44,7 @@ export function registrarErro(fila, questao, marcada, explicacao = null) {
     gabarito: questao.gabarito,
     marcada,
     tentativas: 1,
-    ultimoErro: new Date().toISOString().slice(0, 10),
+    ultimoErro: dataLocal(),
     explicacao,
   }, ...fila].slice(0, MAX_FILA);
 }

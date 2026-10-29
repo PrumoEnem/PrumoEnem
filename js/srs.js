@@ -1,8 +1,17 @@
 /** srs.js — revisão espaçada (SM-2 simplificado) para flashcards e vocabulário. */
 
-const DIA = 86400000;
-const hoje = () => new Date().toISOString().slice(0, 10);
-const emDias = (n) => new Date(Date.now() + n * DIA).toISOString().slice(0, 10);
+const dataLocal = (data = new Date()) => {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const dia = String(data.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+};
+const hoje = () => dataLocal();
+const emDias = (n) => {
+  const data = new Date();
+  data.setDate(data.getDate() + n);
+  return dataLocal(data);
+};
 
 export function novoCartao(dados) {
   return { ...dados, intervalo: 0, facilidade: 2.5, repeticoes: 0, proximaRevisao: hoje() };

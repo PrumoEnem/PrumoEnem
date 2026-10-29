@@ -2,8 +2,8 @@
   "total": 2718,
   "areas": {
     "matematica": {
-      "quantidade": 612,
-      "arquivoKb": 642,
+      "quantidade": 615,
+      "arquivoKb": 646,
       "anos": [
         2009,
         2010,
@@ -23,8 +23,8 @@
       ]
     },
     "natureza": {
-      "quantidade": 612,
-      "arquivoKb": 711,
+      "quantidade": 630,
+      "arquivoKb": 750,
       "anos": [
         2009,
         2010,
@@ -44,8 +44,8 @@
       ]
     },
     "humanas": {
-      "quantidade": 807,
-      "arquivoKb": 1047,
+      "quantidade": 776,
+      "arquivoKb": 1035,
       "anos": [
         2009,
         2010,
@@ -65,8 +65,8 @@
       ]
     },
     "linguagens": {
-      "quantidade": 687,
-      "arquivoKb": 1103,
+      "quantidade": 697,
+      "arquivoKb": 1156,
       "anos": [
         2009,
         2010,

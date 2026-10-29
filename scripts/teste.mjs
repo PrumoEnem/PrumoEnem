@@ -1,17 +1,19 @@
 // Simula uma sessão inteira usando os módulos e os dados reais.
 import { readFileSync } from 'fs';
-import { estimarTheta, faixaDeNota, atualizarTheta } from './site/js/tri.js';
-import { calcularPrioridades, escolherArea, montarSessao, simularNotaSisu } from './site/js/motor.js';
-import * as srs from './site/js/srs.js';
+import { estimarTheta, faixaDeNota, atualizarTheta } from '../js/tri.js';
+import { calcularPrioridades, escolherArea, montarSessao, simularNotaSisu } from '../js/motor.js';
+import * as srs from '../js/srs.js';
+
+const lerJSON = (caminho) => JSON.parse(readFileSync(new URL(caminho, import.meta.url), 'utf8'));
 
 let falhas = 0;
 const ok = (n, c, d='') => { if(!c) falhas++; console.log(`${c?'OK  ':'FALHA'} ${n}${d?' — '+d:''}`); };
 
-const cursos = JSON.parse(readFileSync('site/dados/cursos.json','utf8'));
-const vocab  = JSON.parse(readFileSync('site/dados/vocabulario.json','utf8'));
+const cursos = lerJSON('../dados/cursos.json');
+const vocab  = lerJSON('../dados/vocabulario.json');
 const banco  = {};
 for (const a of ['matematica','natureza','humanas','linguagens'])
-  banco[a] = JSON.parse(readFileSync(`site/dados/questoes-${a}.json`,'utf8'));
+  banco[a] = lerJSON(`../dados/questoes-${a}.json`);
 
 console.log('=== Integridade dos dados ===');
 const total = Object.values(banco).reduce((s,q)=>s+q.length,0);

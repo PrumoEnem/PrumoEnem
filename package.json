@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node scripts/teste.mjs",
+    "test:revisao": "node scripts/teste-revisao.mjs",
+    "test:worker": "node worker/teste-worker.mjs"
+  }
+}

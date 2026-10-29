@@ -7,7 +7,7 @@ const ok = (n, c, d = '') => {
 };
 
 // Reimplementa a escolha exatamente como está no worker, para testar a regra.
-const src = await import('fs').then((fs) => fs.readFileSync('worker.js', 'utf8'));
+const src = await import('fs').then((fs) => fs.readFileSync(new URL('./worker.js', import.meta.url), 'utf8'));
 const corpo = src.slice(src.indexOf('function escolherModeloGemini'), src.indexOf('async function pedirAoGemini'));
 const escolher = new Function(`${corpo}; return escolherModeloGemini;`)();
 

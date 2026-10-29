@@ -1,6 +1,6 @@
 /* sw.js — cache-first para o app, stale-while-revalidate para os dados. */
 
-const VERSAO = 'v12';
+const VERSAO = 'v14';
 const ESTATICO = `estatico-${VERSAO}`;
 const DADOS = `dados-${VERSAO}`;
 
@@ -10,6 +10,7 @@ const ESSENCIAIS = [
   './js/app.js', './js/tri.js', './js/motor.js', './js/srs.js',
   './js/dados.js', './js/revisao.js', './js/estado.js', './js/nuvem.js', './js/ia.js', './js/config.js',
   './js/redacao.js',
+  './js/pomodoro.js',
   './dados/cursos.json', './dados/vocabulario.json',
   './favicon.svg', './icone-192.png', './apple-touch-icon.png',
   './fontes/space-grotesk-latin-wght-normal.woff2',
@@ -39,7 +40,10 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       caches.open(DADOS).then(async (cache) => {
         const guardada = await cache.match(e.request);
-        const rede = fetch(e.request).then((r) => { if (r.ok) cache.put(e.request, r.clone()); return r; }).catch(() => guardada);
+        const rede = fetch(e.request).then(async (r) => {
+          if (r.ok) await cache.put(e.request, r.clone()).catch(() => {});
+          return r;
+        }).catch(() => guardada);
         return guardada || rede;
       })
     );
@@ -47,14 +51,15 @@ self.addEventListener('fetch', (e) => {
   }
 
   // Imagens das questões: cache permanente, são imutáveis.
-  if (/\.(png|jpg|jpeg|svg|webp)$/i.test(url.pathname)) {
+  if (/\.(png|jpg|jpeg|gif|svg|webp|avif)$/i.test(url.pathname)) {
     e.respondWith(
       caches.open(DADOS).then(async (cache) => {
         const guardada = await cache.match(e.request);
         if (guardada) return guardada;
         try {
           const r = await fetch(e.request);
-          if (r.ok) cache.put(e.request, r.clone());
+          // Imagens de enem.dev são cross-origin e chegam como respostas opacas.
+          if (r.ok || r.type === 'opaque') await cache.put(e.request, r.clone()).catch(() => {});
           return r;
         } catch { return new Response('', { status: 504 }); }
       })
