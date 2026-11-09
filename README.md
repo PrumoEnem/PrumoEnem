@@ -2,6 +2,9 @@
 
 Plataforma estática de estudo para o ENEM. O app roda no navegador e não precisa de etapa de build.
 
+[Acessar a plataforma](https://prumoenem.github.io/PrumoEnem/)
+
+
 ## Abrir localmente
 
 Sirva esta pasta por HTTP, por exemplo com `python -m http.server 8000`, e abra `http://localhost:8000`. Módulos JavaScript e o modo offline não funcionam quando a página é aberta diretamente como arquivo.
