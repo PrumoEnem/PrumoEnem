@@ -6,11 +6,11 @@ Plataforma estática de estudo para o ENEM. O app roda no navegador e não preci
 
 Sirva esta pasta por HTTP, por exemplo com `python -m http.server 8000`, e abra `http://localhost:8000`. Módulos JavaScript e o modo offline não funcionam quando a página é aberta diretamente como arquivo.
 
-## Modo intensivo de 10 dias
+## Intensivo para o segundo dia do ENEM
 
-No **Painel**, abra **Abrir plano intensivo** e ative o sprint. O cronograma começa na data local de ativação e se adapta às prioridades do curso. Ele alterna sessões de 20 e 45 questões, reserva dias para redação e revisão de erros e termina com uma sessão leve. Concluir uma sessão marca a etapa do dia.
+No **Painel**, abra **Abrir plano intensivo** e ative o plano. Ele começa na terça-feira mais próxima (no mesmo dia se ativado numa terça), deixa a segunda livre, reserva quatro horas líquidas de terça a sexta e mantém o sábado leve. Os blocos de conteúdo têm links de videoaulas e questões por assunto; os botões do Prumo abrem sessões da área correspondente. As questões da sexta são 20 de Matemática e 20 de Ciências da Natureza, com blocos de correção.
 
-O plano usa 10 dias a partir da ativação; não presume uma data fixa para a prova. Também funciona sem escolher curso, usando pesos iguais entre as áreas.
+Concluir uma sessão do Prumo registra o dia no progresso do intensivo. O plano funciona sem escolher curso, usando pesos iguais entre as áreas.
 
 ## Pomodoro e flashcards
 

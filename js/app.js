@@ -137,11 +137,13 @@ function desenharEntrar() {
 function atalhoIntensivo() {
   const sprint = est.estado.intensivo || {};
   const dia = diaAtualIntensivo(sprint);
-  const texto = sprint.inicio && dia >= 1 && dia <= 10
-    ? `Modo intensivo ativo · dia ${dia} de 10.`
-    : 'Monte um plano de revisão para os próximos 10 dias.';
+  const texto = sprint.modo === 'dia2' && dia >= 1 && dia <= ETAPAS_INTENSIVAS.length
+    ? `Intensivo do 2º dia ativo · etapa ${dia} de ${ETAPAS_INTENSIVAS.length}.`
+    : sprint.modo === 'dia2' && dia > ETAPAS_INTENSIVAS.length
+      ? 'Intensivo do 2º dia concluído. Revise os erros e descanse.'
+      : 'Plano intensivo de 4 horas para Matemática e Natureza.';
   return `<div class="cartao">
-    <h3>Reta final do ENEM</h3>
+    <h3>Foco no 2º dia do ENEM</h3>
     <p class="fraco">${texto}</p>
     <button class="secundario" id="btn-abrir-intensivo">Abrir plano intensivo</button>
   </div>`;
@@ -255,6 +257,7 @@ function desenharPainel() {
  */
 
 const TAMANHOS = [
+  { n: 1, rotulo: '1 questão', nota: 'manutenção leve' },
   { n: 9, rotulo: '9 questões', nota: '3 fáceis, 3 médias, 3 difíceis' },
   { n: 20, rotulo: '20 questões', nota: 'treino mais longo' },
   { n: 45, rotulo: '45 questões', nota: 'uma prova inteira de uma área' },
@@ -262,9 +265,8 @@ const TAMANHOS = [
 
 function desenharInicioSessao() {
   const e = est.estado;
-  if (!e.alvo.pesos) return ir('perfil');
-
-  const prioridades = calcularPrioridades(e.alvo.pesos, e.thetas);
+  const pesos = e.alvo.pesos || Object.fromEntries(AREAS.map((area) => [area, 1]));
+  const prioridades = calcularPrioridades(pesos, e.thetas);
   const sugerida = prioridades[0].area;
   const pref = e.preferenciaSessao || {};
   const tamanho = pref.tamanho || 9;
@@ -284,7 +286,7 @@ function desenharInicioSessao() {
         ${AREAS.map((a) => `
           <button class="opcao ${area === a ? 'ativa' : ''}" data-area="${a}">
             <b>${NOME_AREA[a]}</b>
-            <span>peso ${e.alvo.pesos[a] ?? 1}${e.thetas[a] ? ` · ${thetaParaNota(e.thetas[a].theta)} pontos hoje` : ' · sem medição'}</span>
+          <span>peso ${pesos[a] ?? 1}${e.thetas[a] ? ` · ${thetaParaNota(e.thetas[a].theta)} pontos hoje` : ' · sem medição'}</span>
           </button>`).join('')}
       </div>
     </div>
@@ -342,10 +344,16 @@ async function montarEIniciar() {
   const pref = e.preferenciaSessao || {};
   const tamanho = pref.tamanho || 9;
   const modo = pref.modo || 'porQuestao';
+  const semRevisao = pref.semRevisao === true;
+  if (semRevisao) {
+    delete pref.semRevisao;
+    est.salvarLocal();
+  }
 
   $('#sessao-conteudo').innerHTML = '<div class="carregando">Montando sua sessão</div>';
 
-  const prioridades = calcularPrioridades(e.alvo.pesos, e.thetas);
+  const pesos = e.alvo.pesos || Object.fromEntries(AREAS.map((a) => [a, 1]));
+  const prioridades = calcularPrioridades(pesos, e.thetas);
   const area = (!pref.area || pref.area === 'auto') ? escolherArea(prioridades) : pref.area;
 
   let questoes;
@@ -362,12 +370,13 @@ async function montarEIniciar() {
 
   const theta = e.thetas[area]?.theta ?? 0;
   const porFaixa = Math.max(1, Math.round(tamanho / 3));
-  const { questoes: novas, calibrada } =
+  const { questoes: sorteadas, calibrada } =
     montarSessao(questoes, theta, e.questoesVistas[area], porFaixa);
+  const novas = sorteadas.slice(0, tamanho);
 
   // Questões erradas antes voltam até serem acertadas, com as alternativas
   // embaralhadas para não valer lembrar a letra.
-  const daFila = rev.selecionarParaSessao(e.errosPendentes || []);
+  const daFila = semRevisao ? [] : rev.selecionarParaSessao(e.errosPendentes || []);
   const deRevisao = [];
   for (const item of daFila) {
     try {
@@ -714,9 +723,9 @@ async function finalizarSessao() {
   for (const [area, ids] of vistasPorArea) est.marcarVistas(area, ids);
   e.sessoes.push({ id: s.id, data: new Date().toISOString(), area: s.area, acertos, total: s.respostas.length });
   e.sessoes = e.sessoes.slice(-120);
-  if (e.intensivo?.inicio) {
+  if (e.intensivo?.modo === 'dia2' && e.intensivo?.inicio) {
     const diaDoPlano = diaAtualIntensivo(e.intensivo);
-    if (diaDoPlano >= 1 && diaDoPlano <= 10) {
+    if (diaDoPlano >= 1 && diaDoPlano <= ETAPAS_INTENSIVAS.length) {
       e.intensivo.diasConcluidos = [...new Set([...(e.intensivo.diasConcluidos || []), dataLocal()])];
     }
   }
@@ -1443,25 +1452,62 @@ const DIAS = [
 ];
 
 const ETAPAS_INTENSIVAS = [
-  { titulo: 'Diagnóstico da área prioritária', questoes: 20, foco: 'Anote os assuntos que mais travaram.' },
-  { titulo: 'Segundo foco do plano', questoes: 20, foco: 'Revise os erros e os cartões vencidos.' },
-  { titulo: 'Terceiro foco do plano', questoes: 20, foco: 'Faça uma redação ou revise uma já corrigida.', redacao: true },
-  { titulo: 'Quarto foco do plano', questoes: 20, foco: 'Feche lacunas e releia suas anotações.' },
-  { titulo: 'Treino longo · área 1', questoes: 45, foco: 'Faça em tempo corrido, como treino de prova.' },
-  { titulo: 'Treino longo · área 2', questoes: 45, foco: 'Reserve um bloco para redação depois do treino.', redacao: true },
-  { titulo: 'Treino longo · área 3', questoes: 45, foco: 'Marque dúvidas e revise os erros no fim.' },
-  { titulo: 'Treino longo · área 4', questoes: 45, foco: 'Priorize ritmo e decisões de prova.' },
-  { titulo: 'Consolidar erros', questoes: 20, foco: 'Revise a fila de erros e faça uma redação.', redacao: true },
-  { titulo: 'Revisão leve e descanso', questoes: 9, foco: 'Revise cartões, documentos e logística; durma bem.', modo: 'livre' },
+  {
+    titulo: 'Proporção + ecologia', dia: 'Terça-feira', carga: '4h líquidas', blocos: [
+      { duracao: '40 min', titulo: 'Razão e proporção · videoaula e exemplos', href: 'https://enemhub.com.br/topico/razoes-e-proporcoes' },
+      { duracao: '40 min', titulo: 'Questões diárias de Matemática', sessao: { area: 'matematica', tamanho: 9 } },
+      { duracao: '40 min', titulo: 'Proporção · questões do ENEM por assunto', href: 'https://enemhub.com.br/topico/razoes-e-proporcoes' },
+      { duracao: '40 min', titulo: 'Ecologia · videoaula e mapa de conceitos', href: 'https://enemhub.com.br/topico/conceitos-da-ecologia' },
+      { duracao: '40 min', titulo: 'Questões de Ciências da Natureza', sessao: { area: 'natureza', tamanho: 9 } },
+      { duracao: '40 min', titulo: 'Corrigir os erros e guardar 3 pontos para revisar' },
+    ],
+  },
+  {
+    titulo: 'Porcentagem, gráficos, mecânica e eletricidade', dia: 'Quarta-feira', carga: '4h líquidas', blocos: [
+      { duracao: '40 min', titulo: 'Porcentagem · aula curta e exemplos', href: 'https://enemhub.com.br/topico/porcentagem' },
+      { duracao: '40 min', titulo: 'Questões diárias de Matemática', sessao: { area: 'matematica', tamanho: 9 } },
+      { duracao: '40 min', titulo: 'Gráficos e tabelas · aula + questões do tema', href: 'https://enemhub.com.br/topico/graficos-e-tabelas' },
+      { duracao: '40 min', titulo: 'Mecânica · movimento e forças', href: 'https://enemhub.com.br/area/fisica' },
+      { duracao: '40 min', titulo: 'Eletricidade · circuitos e consumo', href: 'https://enemhub.com.br/area/fisica' },
+      { duracao: '40 min', titulo: 'Questões de Natureza e correção dos erros', sessao: { area: 'natureza', tamanho: 9 } },
+    ],
+  },
+  {
+    titulo: 'Geometria, funções, química e corpo humano', dia: 'Quinta-feira', carga: '4h líquidas', blocos: [
+      { duracao: '40 min', titulo: 'Geometria · revisar fórmulas com figuras', href: 'https://enemhub.com.br/materia/matematica' },
+      { duracao: '40 min', titulo: 'Questões diárias de Matemática', sessao: { area: 'matematica', tamanho: 9 } },
+      { duracao: '40 min', titulo: 'Funções · interpretar lei e gráfico', href: 'https://enemhub.com.br/topico/funcao-afim' },
+      { duracao: '40 min', titulo: 'Química geral e físico-química · aula por tópico', href: 'https://enemhub.com.br/materia/quimica' },
+      { duracao: '40 min', titulo: 'Questões de Ciências da Natureza', sessao: { area: 'natureza', tamanho: 9 } },
+      { duracao: '40 min', titulo: 'Corpo humano e doenças · revisão + flashcards', href: 'https://enemhub.com.br/materia/biologia' },
+    ],
+  },
+  {
+    titulo: 'Simulado parcial do 2º dia', dia: 'Sexta-feira', carga: '4h líquidas', blocos: [
+      { duracao: '60 min', titulo: '20 questões de Matemática · ritmo de prova', sessao: { area: 'matematica', tamanho: 20 } },
+      { duracao: '60 min', titulo: '20 questões de Ciências da Natureza · ritmo de prova', sessao: { area: 'natureza', tamanho: 20 } },
+      { duracao: '60 min', titulo: 'Corrigir Matemática e anotar o motivo dos erros' },
+      { duracao: '60 min', titulo: 'Corrigir Natureza e separar dúvidas para revisão' },
+    ],
+  },
+  {
+    titulo: 'Mapa mental e descanso', dia: 'Sábado', carga: 'Revisão leve · 30 a 45 min', blocos: [
+      { duracao: '20 min', titulo: 'Mapa mental com fórmulas e erros mais importantes' },
+      { duracao: '10–25 min', titulo: 'Uma questão leve de Matemática, sem cronômetro', sessao: { area: 'matematica', tamanho: 1, modo: 'livre' } },
+      { duracao: 'Fim do dia', titulo: 'Separar o necessário para a prova e dormir cedo' },
+    ],
+  },
 ];
 
 function diaAtualIntensivo(intensivo) {
-  if (!intensivo?.inicio) return 0;
+  if (intensivo?.modo !== 'dia2' || !intensivo?.inicio) return 0;
   const [ano, mes, dia] = intensivo.inicio.split('-').map(Number);
   const [anoHoje, mesHoje, diaHoje] = dataLocal().split('-').map(Number);
   const inicioUtc = Date.UTC(ano, mes - 1, dia);
   const hojeUtc = Date.UTC(anoHoje, mesHoje - 1, diaHoje);
-  return Math.floor((hojeUtc - inicioUtc) / 86400000) + 1;
+  const diferenca = Math.floor((hojeUtc - inicioUtc) / 86400000);
+  if (diferenca < 0) return 0;
+  return diferenca < ETAPAS_INTENSIVAS.length ? diferenca + 1 : ETAPAS_INTENSIVAS.length + 1;
 }
 
 function avancarData(chave, dias) {
@@ -1471,83 +1517,101 @@ function avancarData(chave, dias) {
   return dataLocal(data);
 }
 
-function etapaIntensiva(dia, prioridades) {
-  const base = ETAPAS_INTENSIVAS[dia - 1];
-  const ordem = prioridades.map((p) => p.area);
-  const indiceArea = dia <= 4 ? dia - 1 : dia <= 8 ? dia - 5 : 0;
-  const area = ordem[indiceArea] || ordem[0] || AREAS[0];
-  return { ...base, area, modo: base.modo || 'total' };
+function proximaTerca(chave = dataLocal()) {
+  const [ano, mes, dia] = chave.split('-').map(Number);
+  const data = new Date(ano, mes - 1, dia);
+  data.setDate(data.getDate() + ((2 - data.getDay() + 7) % 7));
+  return dataLocal(data);
 }
 
-function cartaoIntensivo(prioridades) {
-  const sprint = est.estado.intensivo || { inicio: null, diasConcluidos: [] };
-  if (!sprint.inicio) {
-    return `<div class="cartao">
-      <h3>Modo intensivo · 10 dias</h3>
-      <p class="fraco">Um sprint com foco nas quatro áreas, treinos longos, revisão dos erros e uma reta final leve. A etapa do dia se adapta às prioridades do seu curso.</p>
-      <button class="primario" id="btn-ativar-intensivo">Ativar meu plano de 10 dias</button>
-    </div>`;
-  }
+function dataCurta(chave) {
+  const [, mes, dia] = chave.split('-').map(Number);
+  return `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}`;
+}
 
-  const dia = diaAtualIntensivo(sprint);
-  const concluidos = sprint.diasConcluidos || [];
-  const fim = avancarData(sprint.inicio, 9);
-  const feitos = concluidos.filter((data) => data >= sprint.inicio && data <= fim).length;
-  const ativo = dia >= 1 && dia <= 10;
-  const etapa = ativo ? etapaIntensiva(dia, prioridades) : null;
-  const linhas = ETAPAS_INTENSIVAS.map((item, i) => {
-    const numero = i + 1;
-    const data = avancarData(sprint.inicio, i);
-    const area = etapaIntensiva(numero, prioridades).area;
-    const feito = concluidos.includes(data);
-    return `<div class="linha-area">
-      <div class="rotulo"><b>Dia ${numero} · ${escapar(item.titulo)}</b>
-        <span class="fraco">${data} · ${NOME_AREA[area]} · ${item.questoes} questões${item.redacao ? ' + redação' : ''}</span>
-      </div>
-      <div class="pct numero">${feito ? '✓' : numero === dia ? 'Hoje' : '·'}</div>
-    </div>`;
-  }).join('');
-
-  return `<div class="cartao">
-    <div class="linha-area"><div class="rotulo"><h3>Modo intensivo · dia ${ativo ? dia : 'finalizado'} de 10</h3>
-      <span class="fraco">${feitos} de 10 etapas concluídas</span></div>
-      <div class="pct numero">${Math.min(100, Math.round(feitos * 10))}%</div></div>
-    <div class="barra"><i style="width:${Math.min(100, feitos * 10)}%"></i></div>
-    ${ativo ? `<p class="fraco"><b>${escapar(etapa.titulo)}</b> · ${NOME_AREA[etapa.area]} · ${etapa.questoes} questões. ${escapar(etapa.foco)}</p>
-      <button class="primario" id="btn-etapa-intensiva">${concluidos.includes(dataLocal()) ? 'Fazer outro treino de hoje' : 'Começar treino de hoje'}</button>`
-      : '<p class="fraco">O ciclo de 10 dias terminou. Você pode reiniciar quando quiser.</p>'}
-    <details style="margin-top:14px"><summary>Ver as 10 etapas</summary><div style="margin-top:10px">${linhas}</div></details>
-    <button class="secundario" id="btn-reiniciar-intensivo" style="margin-top:12px">Reiniciar plano de 10 dias</button>
-    <button class="secundario" id="btn-desativar-intensivo" style="margin-top:8px">Desativar modo intensivo</button>
+function htmlBlocoIntensivo(bloco, diaIndex, blocoIndex) {
+  const recurso = bloco.href
+    ? `<a class="botao-recurso" href="${escapar(bloco.href)}" target="_blank" rel="noopener noreferrer">Videoaulas + questões no EnemHub ↗</a>`
+    : '';
+  const treino = bloco.sessao
+    ? `<button class="secundario" data-intensivo-treino="true" data-area="${escapar(bloco.sessao.area)}" data-tamanho="${bloco.sessao.tamanho}" data-modo="${escapar(bloco.sessao.modo || 'porQuestao')}" data-bloco="${diaIndex}-${blocoIndex}">${escapar(bloco.sessao.tamanho === 1 ? 'Fazer 1 questão no Prumo' : `Fazer ${bloco.sessao.tamanho} questões no Prumo`)}</button>`
+    : '';
+  return `<div class="bloco-intensivo">
+    <div class="bloco-intensivo-cabecalho"><span>${escapar(bloco.duracao)}</span><b>${escapar(bloco.titulo)}</b></div>
+    ${(recurso || treino) ? `<div class="acoes-intensivo">${recurso}${treino}</div>` : ''}
   </div>`;
 }
 
-function ligarIntensivo(prioridades) {
+function cartaoIntensivo() {
+  const sprint = est.estado.intensivo || { inicio: null, diasConcluidos: [] };
+  const temPlano = sprint.modo === 'dia2' && Boolean(sprint.inicio);
+  const dia = temPlano ? diaAtualIntensivo(sprint) : 0;
+  const concluidos = sprint.diasConcluidos || [];
+  const fim = temPlano ? avancarData(sprint.inicio, ETAPAS_INTENSIVAS.length - 1) : null;
+  const feitos = temPlano ? concluidos.filter((data) => data >= sprint.inicio && data <= fim).length : 0;
+  const percentual = Math.round(feitos / ETAPAS_INTENSIVAS.length * 100);
+  const inicioProposto = proximaTerca();
+  const status = !temPlano
+    ? `Ative para começar na terça-feira, ${dataCurta(inicioProposto)}.`
+    : dia === 0
+      ? `Seu plano começa na terça-feira, ${dataCurta(sprint.inicio)}.`
+      : dia <= ETAPAS_INTENSIVAS.length
+        ? `Etapa ${dia} de ${ETAPAS_INTENSIVAS.length} · ${feitos} dias concluídos.`
+        : `Ciclo concluído · ${feitos} de ${ETAPAS_INTENSIVAS.length} dias registrados.`;
+  const dias = ETAPAS_INTENSIVAS.map((item, i) => {
+    const numero = i + 1;
+    const data = temPlano ? dataCurta(avancarData(sprint.inicio, i)) : item.dia;
+    const feito = temPlano && concluidos.includes(avancarData(sprint.inicio, i));
+    const aberto = numero === dia || (!temPlano && numero === 1);
+    return `<details class="dia-intensivo" ${aberto ? 'open' : ''}>
+      <summary><span>${escapar(data)} · ${escapar(item.titulo)}</span><b>${feito ? '✓' : `${item.carga}`}</b></summary>
+      <div class="lista-blocos-intensivo">${item.blocos.map((bloco, j) => htmlBlocoIntensivo(bloco, i, j)).join('')}</div>
+    </details>`;
+  }).join('');
+
+  return `<div class="cartao cartao-intensivo">
+    <h3>Intensivo para o 2º dia do ENEM</h3>
+    <p class="fraco">${escapar(status)}</p>
+    <p class="fraco">Segunda livre. Terça a sexta: 4 horas líquidas por dia. Sábado: mapa mental, uma questão leve de Matemática e cama cedo. Domingo: dia da prova. O simulado de sexta tem 20 questões de Matemática e 20 de Natureza.</p>
+    ${temPlano ? `<div class="barra"><i style="width:${percentual}%"></i></div>` : ''}
+    <div class="lista-dias-intensivo">${dias}</div>
+    ${temPlano
+      ? `<button class="secundario" id="btn-reiniciar-intensivo" style="margin-top:12px">Reiniciar intensivo · começa ${dataCurta(inicioProposto)}</button>
+         <button class="secundario" id="btn-desativar-intensivo" style="margin-top:8px">Desativar intensivo</button>`
+      : '<button class="primario" id="btn-ativar-intensivo" style="margin-top:14px">Ativar meu intensivo</button>'}
+    <p class="fraco" style="margin-top:12px">As sessões do Prumo usam questões da área escolhida; os links de cada assunto abrem videoaulas e questões específicas.</p>
+  </div>`;
+}
+
+function ligarIntensivo() {
   const ativar = () => {
-    est.estado.intensivo = { inicio: dataLocal(), diasConcluidos: [] };
+    est.estado.intensivo = { modo: 'dia2', inicio: proximaTerca(), diasConcluidos: [] };
     est.salvarLocal(); est.sincronizar(); desenharPlano();
   };
   if ($('#btn-ativar-intensivo')) $('#btn-ativar-intensivo').onclick = ativar;
   if ($('#btn-reiniciar-intensivo')) $('#btn-reiniciar-intensivo').onclick = ativar;
   if ($('#btn-desativar-intensivo')) $('#btn-desativar-intensivo').onclick = () => {
-    est.estado.intensivo = { inicio: null, diasConcluidos: [] };
+    est.estado.intensivo = { modo: null, inicio: null, diasConcluidos: [] };
     est.salvarLocal(); est.sincronizar(); desenharPlano();
   };
-  if ($('#btn-etapa-intensiva')) $('#btn-etapa-intensiva').onclick = () => {
-    const dia = diaAtualIntensivo(est.estado.intensivo);
-    if (dia < 1 || dia > 10) return;
-    const etapa = etapaIntensiva(dia, prioridades);
-    est.estado.preferenciaSessao = {
-      ...(est.estado.preferenciaSessao || {}),
-      area: etapa.area,
-      tamanho: etapa.questoes,
-      modo: etapa.modo,
+  document.querySelectorAll('[data-intensivo-treino="true"]').forEach((botao) => {
+    botao.onclick = () => {
+      const area = botao.dataset.area;
+      const tamanho = Number(botao.dataset.tamanho);
+      const modo = botao.dataset.modo || 'porQuestao';
+      est.estado.preferenciaSessao = {
+        ...(est.estado.preferenciaSessao || {}),
+        area,
+        tamanho,
+        modo,
+        semRevisao: true,
+      };
+      est.salvarLocal();
+      sessao = null;
+      ir('sessao');
+      montarEIniciar();
     };
-    est.salvarLocal();
-    sessao = null;
-    ir('sessao');
-    montarEIniciar();
-  };
+  });
 }
 
 /**
@@ -1653,11 +1717,11 @@ function desenharPlano() {
   const e = est.estado;
   const pesos = e.alvo.pesos || Object.fromEntries(AREAS.map((area) => [area, 1]));
   const prioridades = calcularPrioridades(pesos, e.thetas);
-  let html = cartaoIntensivo(prioridades);
+  let html = cartaoIntensivo();
 
   if (!e.alvo.pesos) {
     $('#plano-conteudo').innerHTML = `${html}<p class="fraco">Escolha seu curso no perfil para personalizar as prioridades do plano.</p>`;
-    ligarIntensivo(prioridades);
+    ligarIntensivo();
     return;
   }
 
@@ -1697,7 +1761,7 @@ function desenharPlano() {
 
   $('#plano-conteudo').innerHTML = html;
   ligarRotina(prioridades);
-  ligarIntensivo(prioridades);
+  ligarIntensivo();
 }
 
 // ---------------------------------------------------------------- perfil
