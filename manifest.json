@@ -3,8 +3,8 @@
   "short_name": "PrumoENEM",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#171A26",
-  "theme_color": "#171A26",
+  "background_color": "#0d1420",
+  "theme_color": "#0d1420",
   "orientation": "portrait",
   "lang": "pt-BR",
   "icons": [

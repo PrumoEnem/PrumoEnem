@@ -42,7 +42,7 @@ function estadoInicial() {
     notaRedacao: null,
     redacao: { competencias: {}, ultimaAtualizacao: null, tempos: [] },
     preferenciaSessao: null,
-    intensivo: { inicio: null, diasConcluidos: [] },
+    intensivo: { modo: null, inicio: null, diasConcluidos: [] },
     nome: null,
     foto: null,
     plano: 'gratuito',
@@ -78,6 +78,7 @@ function normalizarEstado() {
   estado.resumos = Array.isArray(estado.resumos) ? estado.resumos : [];
   estado.sessoes = Array.isArray(estado.sessoes) ? estado.sessoes : [];
   estado.intensivo = {
+    modo: estado.intensivo?.modo || null,
     inicio: estado.intensivo?.inicio || null,
     diasConcluidos: Array.isArray(estado.intensivo?.diasConcluidos)
       ? [...new Set(estado.intensivo.diasConcluidos)] : [],
