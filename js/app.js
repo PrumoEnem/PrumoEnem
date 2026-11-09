@@ -158,6 +158,41 @@ function atalhoPomodoro() {
   </div>`;
 }
 
+function cartaoFocoEstudo(area) {
+  const titulo = area === 'matematica' ? 'Matemática de hoje' : `Comece por ${NOME_AREA[area]}`;
+  return `<div class="cartao home-foco">
+    <div class="foco-selo">PRÓXIMO PASSO</div>
+    <h3>${escapar(titulo)}</h3>
+    <p class="fraco">Uma sessão curta que começa com 9 questões. Responda com calma e use a correção para escolher o que revisar.</p>
+    <div class="home-foco-acoes">
+      <button class="primario" id="btn-estudar">Começar agora · ${escapar(NOME_AREA[area])}</button>
+      ${area !== 'matematica' ? '<button class="secundario" id="btn-estudar-matematica">Fazer Matemática do dia · 9 questões</button>' : ''}
+      <button class="texto-botao" id="btn-escolher-sessao">Escolher outra área ou tamanho</button>
+    </div>
+  </div>`;
+}
+
+function iniciarSessaoRapida(area, tamanho = 9, modo = 'porQuestao') {
+  est.estado.preferenciaSessao = {
+    ...(est.estado.preferenciaSessao || {}),
+    area,
+    tamanho,
+    modo,
+  };
+  est.salvarLocal();
+  sessao = null;
+  ir('sessao');
+  montarEIniciar();
+}
+
+function ligarAtalhosPainel(areaFoco) {
+  $('#btn-abrir-intensivo').onclick = () => ir('plano');
+  $('#btn-abrir-pomodoro').onclick = abrirPomodoro;
+  $('#btn-estudar').onclick = () => iniciarSessaoRapida(areaFoco);
+  $('#btn-estudar-matematica')?.addEventListener('click', () => iniciarSessaoRapida('matematica'));
+  $('#btn-escolher-sessao')?.addEventListener('click', () => { sessao = null; ir('sessao'); });
+}
+
 function desenharPainel() {
   const e = est.estado;
   const ofensiva = est.ofensivaViva();
@@ -167,19 +202,22 @@ function desenharPainel() {
 
   const curso = cursos?.cursos.find((c) => c.id === e.alvo.cursoId);
   $('#painel-curso').textContent = curso ? `${curso.curso} · ${curso.campus}` : 'Escolher curso';
-  $('#painel-saudacao').textContent = e.nome ? `Olá, ${e.nome}` : 'Seu alvo';
+  $('#painel-saudacao').textContent = e.nome ? `Olá, ${e.nome}` : 'Seu próximo passo';
+  const pesos = e.alvo.pesos || Object.fromEntries(AREAS.map((area) => [area, 1]));
+  const prioridades = calcularPrioridades(pesos, e.thetas);
+  const areaFoco = prioridades.find((p) => p.area === 'matematica' || p.area === 'natureza')?.area || 'matematica';
 
   if (!e.alvo.pesos) {
     $('#painel-conteudo').innerHTML = `
+      ${cartaoFocoEstudo(areaFoco)}
       ${atalhoIntensivo()}
-      ${atalhoPomodoro()}
       <div class="vazio">
-        <h3>Escolha seu curso primeiro</h3>
-        <p class="fraco">Os pesos do SiSU definem quanto cada área vale para você.</p>
+        <h3>Personalize seu alvo</h3>
+        <p class="fraco">Escolha seu curso para o plano considerar os pesos do SiSU. Você já pode começar a estudar.</p>
         <button class="primario" onclick="document.querySelector('[data-ir=perfil]').click()">Escolher curso</button>
       </div>`;
-    $('#btn-abrir-intensivo').onclick = () => ir('plano');
-    $('#btn-abrir-pomodoro').onclick = abrirPomodoro;
+    $('#painel-conteudo').insertAdjacentHTML('beforeend', atalhoPomodoro());
+    ligarAtalhosPainel(areaFoco);
     return;
   }
 
@@ -187,7 +225,7 @@ function desenharPainel() {
   const medidas = AREAS.filter((a) => e.thetas[a]);
   const meta = e.metaSemanal;
 
-  let html = atalhoIntensivo() + atalhoPomodoro();
+  let html = cartaoFocoEstudo(areaFoco) + atalhoIntensivo();
 
   if (medidas.length) {
     const media = simulacao.media;
@@ -237,11 +275,9 @@ function desenharPainel() {
       <button class="secundario" onclick="document.querySelector('[data-ir=cartoes]').click()">Revisar agora</button></div>`;
   }
 
-  html += `<button class="primario" id="btn-estudar">Começar sessão</button>`;
+  html += atalhoPomodoro();
   $('#painel-conteudo').innerHTML = html;
-  $('#btn-abrir-intensivo').onclick = () => ir('plano');
-  $('#btn-abrir-pomodoro').onclick = abrirPomodoro;
-  $('#btn-estudar').onclick = () => { sessao = null; ir('sessao'); };
+  ligarAtalhosPainel(areaFoco);
 }
 
 // ---------------------------------------------------------------- sessão
@@ -274,7 +310,8 @@ function desenharInicioSessao() {
   const area = pref.area || 'auto';
 
   $('#sessao-conteudo').innerHTML = `
-    <h1>Nova sessão</h1>
+    <h1>Escolha seu foco</h1>
+    <p class="fraco">Faça um bloco por vez. No fim, corrija os erros e escolha o próximo assunto para revisar.</p>
 
     <div class="cartao">
       <h3>Área</h3>
