@@ -11,7 +11,7 @@ Sirva esta pasta por HTTP, por exemplo com `python -m http.server 8000`, e abra 
 
 ## Intensivo para o segundo dia do ENEM
 
-No **Painel**, abra **Abrir plano intensivo** e ative o plano. Ele começa na terça-feira mais próxima (no mesmo dia se ativado numa terça), deixa a segunda livre, reserva quatro horas líquidas de terça a sexta e mantém o sábado leve. Os blocos de conteúdo têm links de videoaulas e questões por assunto; os botões do Prumo abrem sessões da área correspondente. As questões da sexta são 20 de Matemática e 20 de Ciências da Natureza, com blocos de correção.
+No **Painel**, abra **Abrir plano intensivo** e ative o plano. Ele começa na terça-feira mais próxima (no mesmo dia se ativado numa terça), deixa a segunda livre, reserva quatro horas líquidas de terça a sexta e mantém o sábado leve. Cada bloco mostra o objetivo do conteúdo, um passo a passo com tempos e links de videoaulas/questões por assunto. Os botões do Prumo abrem sessões da área correspondente. As questões da sexta são 20 de Matemática e 20 de Ciências da Natureza, com blocos de correção.
 
 Concluir uma sessão do Prumo registra o dia no progresso do intensivo. O plano funciona sem escolher curso, usando pesos iguais entre as áreas.
 

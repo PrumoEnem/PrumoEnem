@@ -261,6 +261,16 @@ a:hover { color: var(--azul-forte); }
 .bloco-intensivo-cabecalho { display: flex; align-items: flex-start; gap: 10px; }
 .bloco-intensivo-cabecalho > span { flex: 0 0 56px; color: var(--ambar); font: 650 11px/1.45 var(--display); }
 .bloco-intensivo-cabecalho > b { font: 600 13px/1.45 var(--corpo); }
+.foco-intensivo { margin: 8px 0 0; color: var(--fraco); font-size: 12px; line-height: 1.5; }
+.foco-intensivo b { color: var(--ambar); }
+.roteiro-intensivo { margin-top: 8px; }
+.roteiro-intensivo summary { display: inline-flex; align-items: center; min-height: 32px; padding: 0 10px; border: 1px solid var(--linha-fraca); border-radius: 8px; color: var(--azul-forte); cursor: pointer; font-size: 12px; font-weight: 650; list-style: none; }
+.roteiro-intensivo summary::-webkit-details-marker { display: none; }
+.roteiro-intensivo summary::before { content: '+'; margin-right: 7px; color: var(--ambar); font: 700 15px var(--display); }
+.roteiro-intensivo[open] summary::before { content: '−'; }
+.roteiro-intensivo ol { display: grid; gap: 7px; margin: 9px 0 0; padding: 0; list-style: none; }
+.roteiro-intensivo li { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 8px; color: var(--fraco); font-size: 12px; line-height: 1.45; }
+.roteiro-intensivo li b { color: var(--ambar); font: 650 11px/1.5 var(--display); }
 .acoes-intensivo { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .acoes-intensivo > * { flex: 1 1 180px; min-height: 44px; }
 .botao-recurso { display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; border: 1px solid rgba(98, 174, 248, .25); border-radius: 10px; background: var(--azul-fundo); color: var(--azul-forte); font-size: 13px; font-weight: 650; line-height: 1.3; text-align: center; text-decoration: none; }

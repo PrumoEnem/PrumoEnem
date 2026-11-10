@@ -1488,50 +1488,180 @@ const DIAS = [
   { i: 6, curto: 'S', nome: 'Sábado' },
 ];
 
+function blocoVideoIntensivo(titulo, foco, recursos, roteiro) {
+  return { duracao: '40 min', titulo, foco, recursos, roteiro };
+}
+
+function blocoQuestoesIntensivo(titulo, area, tamanho, foco, roteiro, duracao = '40 min', modo = 'porQuestao') {
+  return { duracao, titulo, foco, roteiro, sessao: { area, tamanho, modo } };
+}
+
+function blocoRoteiroIntensivo(duracao, titulo, foco, roteiro) {
+  return { duracao, titulo, foco, roteiro };
+}
+
 const ETAPAS_INTENSIVAS = [
   {
     titulo: 'Proporção + ecologia', dia: 'Terça-feira', carga: '4h líquidas', blocos: [
-      { duracao: '40 min', titulo: 'Razão e proporção · videoaula e exemplos', href: 'https://enemhub.com.br/topico/razoes-e-proporcoes' },
-      { duracao: '40 min', titulo: 'Questões diárias de Matemática', sessao: { area: 'matematica', tamanho: 9 } },
-      { duracao: '40 min', titulo: 'Proporção · questões do ENEM por assunto', href: 'https://enemhub.com.br/topico/razoes-e-proporcoes' },
-      { duracao: '40 min', titulo: 'Ecologia · videoaula e mapa de conceitos', href: 'https://enemhub.com.br/topico/conceitos-da-ecologia' },
-      { duracao: '40 min', titulo: 'Questões de Ciências da Natureza', sessao: { area: 'natureza', tamanho: 9 } },
-      { duracao: '40 min', titulo: 'Corrigir os erros e guardar 3 pontos para revisar' },
+      blocoVideoIntensivo('Razão, proporção e regra de três', 'Distinguir razão e proporção e identificar quando as grandezas são diretas ou inversas.', [
+        { titulo: 'Videoaulas de razão e proporção', href: 'https://enemhub.com.br/topico/razoes-e-proporcoes' },
+      ], [
+        { tempo: '15 min', acao: 'Assista a uma videoaula curta e pause para acompanhar os exemplos.' },
+        { tempo: '10 min', acao: 'Anote como reconhecer grandezas diretas e inversas.' },
+        { tempo: '15 min', acao: 'Refaça 2 exemplos sem olhar a resolução e confira o resultado.' },
+      ]),
+      blocoQuestoesIntensivo('Questões diárias de Matemática', 'matematica', 9, 'Praticar leitura de enunciado e cálculo sem depender de uma fórmula decorada.', [
+        { tempo: '5 min', acao: 'Leia as questões e marque os dados importantes.' },
+        { tempo: '25 min', acao: 'Resolva as 9 questões com calma, sem abrir a resolução.' },
+        { tempo: '10 min', acao: 'Confira as respostas e anote o motivo de cada erro.' },
+      ]),
+      blocoRoteiroIntensivo('40 min', 'Questões do ENEM: proporção e escalas', 'Treinar a escolha da proporção e manter as unidades iguais antes de calcular.', [
+        { tempo: '5 min', acao: 'Leia os enunciados e circule as grandezas que se relacionam.' },
+        { tempo: '25 min', acao: 'Resolva questões de proporção e escala, mostrando as contas.' },
+        { tempo: '10 min', acao: 'Confira o gabarito e refaça uma questão que errou.' },
+      ]),
+      blocoVideoIntensivo('Ecologia: relações e fluxo de energia', 'Reconhecer níveis ecológicos, relações entre espécies e o caminho da energia nas cadeias alimentares.', [
+        { titulo: 'Videoaulas de conceitos da ecologia', href: 'https://enemhub.com.br/topico/conceitos-da-ecologia' },
+        { titulo: 'Videoaulas de relações ecológicas', href: 'https://enemhub.com.br/topico/relacoes-ecologicas' },
+        { titulo: 'Videoaulas de cadeias alimentares', href: 'https://enemhub.com.br/topico/fluxo-de-energia-e-niveis-troficos' },
+      ], [
+        { tempo: '15 min', acao: 'Escolha uma aula curta nos links e anote os conceitos que se confundem.' },
+        { tempo: '15 min', acao: 'Desenhe uma cadeia alimentar com setas no sentido do fluxo de energia.' },
+        { tempo: '10 min', acao: 'Explique em voz alta uma relação ecológica e um impacto ambiental.' },
+      ]),
+      blocoQuestoesIntensivo('Questões de Ciências da Natureza', 'natureza', 9, 'Aplicar os conceitos estudados e praticar a leitura de situações científicas.', [
+        { tempo: '5 min', acao: 'Leia e identifique o assunto principal de cada enunciado.' },
+        { tempo: '25 min', acao: 'Resolva as 9 questões sem consultar o resumo.' },
+        { tempo: '10 min', acao: 'Corrija e marque o conceito que precisa rever.' },
+      ]),
+      blocoRoteiroIntensivo('40 min', 'Correção e revisão do dia', 'Transformar os erros de proporção e ecologia em pontos concretos para revisar.', [
+        { tempo: '15 min', acao: 'Releia as questões erradas de Matemática e refaça uma delas.' },
+        { tempo: '15 min', acao: 'Revise o mapa de ecologia e complete o que ficou faltando.' },
+        { tempo: '10 min', acao: 'Registre 3 dúvidas ou ideias-chave para retomar depois.' },
+      ]),
     ],
   },
   {
     titulo: 'Porcentagem, gráficos, mecânica e eletricidade', dia: 'Quarta-feira', carga: '4h líquidas', blocos: [
-      { duracao: '40 min', titulo: 'Porcentagem · aula curta e exemplos', href: 'https://enemhub.com.br/topico/porcentagem' },
-      { duracao: '40 min', titulo: 'Questões diárias de Matemática', sessao: { area: 'matematica', tamanho: 9 } },
-      { duracao: '40 min', titulo: 'Gráficos e tabelas · aula + questões do tema', href: 'https://enemhub.com.br/topico/graficos-e-tabelas' },
-      { duracao: '40 min', titulo: 'Mecânica · movimento e forças', href: 'https://enemhub.com.br/area/fisica' },
-      { duracao: '40 min', titulo: 'Eletricidade · circuitos e consumo', href: 'https://enemhub.com.br/area/fisica' },
-      { duracao: '40 min', titulo: 'Questões de Natureza e correção dos erros', sessao: { area: 'natureza', tamanho: 9 } },
+      blocoVideoIntensivo('Porcentagem: aumentos e descontos', 'Calcular uma parte do todo e interpretar variações percentuais em situações do cotidiano.', [
+        { titulo: 'Videoaulas de porcentagem', href: 'https://enemhub.com.br/topico/porcentagem' },
+      ], [
+        { tempo: '15 min', acao: 'Assista a uma aula curta e pause nos exemplos de aumento e desconto.' },
+        { tempo: '10 min', acao: 'Anote dois jeitos de calcular porcentagem.' },
+        { tempo: '15 min', acao: 'Resolva 2 exemplos: um de aumento e outro de desconto.' },
+      ]),
+      blocoQuestoesIntensivo('Questões diárias de Matemática', 'matematica', 9, 'Manter a prática diária e reconhecer que cálculo cada questão pede.', [
+        { tempo: '5 min', acao: 'Leia as questões e destaque os dados numéricos.' },
+        { tempo: '25 min', acao: 'Resolva as 9 questões sem consultar o resumo.' },
+        { tempo: '10 min', acao: 'Corrija e anote onde o raciocínio mudou.' },
+      ]),
+      blocoVideoIntensivo('Gráficos e tabelas', 'Ler título, eixos, unidades e tendência antes de fazer contas.', [
+        { titulo: 'Videoaulas de gráficos e tabelas', href: 'https://enemhub.com.br/topico/graficos-e-tabelas' },
+      ], [
+        { tempo: '15 min', acao: 'Assista a uma aula curta sobre leitura de gráficos.' },
+        { tempo: '10 min', acao: 'Anote o que verificar nos eixos, na legenda e nas unidades.' },
+        { tempo: '15 min', acao: 'Interprete 2 gráficos ou tabelas e escreva a conclusão em uma frase.' },
+      ]),
+      blocoVideoIntensivo('Mecânica: movimento, trabalho e energia', 'Relacionar movimento e transformação de energia aos dados apresentados no enunciado.', [
+        { titulo: 'Videoaulas de movimento uniforme', href: 'https://enemhub.com.br/topico/movimento-uniforme' },
+        { titulo: 'Videoaulas de trabalho e energia', href: 'https://enemhub.com.br/topico/trabalho' },
+      ], [
+        { tempo: '20 min', acao: 'Assista a uma aula de movimento e a um exemplo de trabalho ou energia.' },
+        { tempo: '10 min', acao: 'Registre as grandezas e unidades usadas nos exemplos.' },
+        { tempo: '10 min', acao: 'Refaça um exemplo identificando os dados antes de calcular.' },
+      ]),
+      blocoVideoIntensivo('Eletricidade: corrente, potência e consumo', 'Distinguir tensão, corrente e potência e interpretar o consumo em kWh.', [
+        { titulo: 'Videoaulas de eletrodinâmica', href: 'https://enemhub.com.br/topico/eletrodinamica-i-corrente-potencia-resistores-e-lampadas' },
+      ], [
+        { tempo: '15 min', acao: 'Assista a uma aula sobre circuitos, potência ou consumo elétrico.' },
+        { tempo: '10 min', acao: 'Anote o significado das unidades V, A, W e kWh.' },
+        { tempo: '15 min', acao: 'Resolva um exemplo de consumo de energia de um aparelho.' },
+      ]),
+      blocoQuestoesIntensivo('Questões de Natureza + correção', 'natureza', 9, 'Aplicar mecânica e eletricidade em questões contextualizadas.', [
+        { tempo: '5 min', acao: 'Leia os enunciados e identifique o fenômeno envolvido.' },
+        { tempo: '25 min', acao: 'Resolva as 9 questões e registre as contas.' },
+        { tempo: '10 min', acao: 'Confira as respostas e reveja uma questão errada.' },
+      ]),
     ],
   },
   {
-    titulo: 'Geometria, funções, química e corpo humano', dia: 'Quinta-feira', carga: '4h líquidas', blocos: [
-      { duracao: '40 min', titulo: 'Geometria · revisar fórmulas com figuras', href: 'https://enemhub.com.br/materia/matematica' },
-      { duracao: '40 min', titulo: 'Questões diárias de Matemática', sessao: { area: 'matematica', tamanho: 9 } },
-      { duracao: '40 min', titulo: 'Funções · interpretar lei e gráfico', href: 'https://enemhub.com.br/topico/funcao-afim' },
-      { duracao: '40 min', titulo: 'Química geral e físico-química · aula por tópico', href: 'https://enemhub.com.br/materia/quimica' },
-      { duracao: '40 min', titulo: 'Questões de Ciências da Natureza', sessao: { area: 'natureza', tamanho: 9 } },
-      { duracao: '40 min', titulo: 'Corpo humano e doenças · revisão + flashcards', href: 'https://enemhub.com.br/materia/biologia' },
+    titulo: 'Geometria, funções, química, corpo humano e doenças', dia: 'Quinta-feira', carga: '4h líquidas', blocos: [
+      blocoVideoIntensivo('Geometria: áreas, perímetros e figuras', 'Escolher a fórmula adequada, conferir as medidas e manter as unidades corretas.', [
+        { titulo: 'Videoaulas de áreas de figuras planas', href: 'https://enemhub.com.br/topico/area-de-todas-as-figuras-planas' },
+      ], [
+        { tempo: '15 min', acao: 'Assista a uma aula curta de áreas de figuras planas.' },
+        { tempo: '10 min', acao: 'Desenhe as figuras e escreva as fórmulas principais.' },
+        { tempo: '15 min', acao: 'Resolva 2 exemplos e confira se a unidade final faz sentido.' },
+      ]),
+      blocoQuestoesIntensivo('Questões diárias de Matemática', 'matematica', 9, 'Praticar a leitura matemática e revisar os conteúdos dos dois dias anteriores.', [
+        { tempo: '5 min', acao: 'Leia as questões e marque o que cada uma pede.' },
+        { tempo: '25 min', acao: 'Resolva as 9 questões sem olhar soluções.' },
+        { tempo: '10 min', acao: 'Corrija e escolha um erro para explicar com suas palavras.' },
+      ]),
+      blocoVideoIntensivo('Funções: lei, gráfico e interpretação', 'Relacionar a regra da função ao gráfico e entender o papel de cada variável.', [
+        { titulo: 'Videoaulas de função afim', href: 'https://enemhub.com.br/topico/funcao-afim-e-funcoes-lineares' },
+      ], [
+        { tempo: '15 min', acao: 'Assista a uma aula de função afim e observe a construção do gráfico.' },
+        { tempo: '10 min', acao: 'Anote o que representam a taxa de variação e o valor inicial.' },
+        { tempo: '15 min', acao: 'Leia um gráfico e resolva um exemplo de função.' },
+      ]),
+      blocoVideoIntensivo('Química geral e físico-química', 'Revisar propriedades e misturas e praticar cálculos simples de concentração ou quantidade de matéria.', [
+        { titulo: 'Videoaulas de propriedades dos materiais', href: 'https://enemhub.com.br/topico/propriedades-dos-materiais' },
+        { titulo: 'Videoaulas de concentração de soluções', href: 'https://enemhub.com.br/topico/tipos-e-calculos-de-concentracao-g-l-densidade-porcentagem-em-massa-ppm-mol-l-molalidade/ZwT6epapk-A' },
+      ], [
+        { tempo: '15 min', acao: 'Escolha uma aula curta de conceitos, propriedades ou misturas.' },
+        { tempo: '15 min', acao: 'Escolha uma aula de concentração, reação ou cálculo químico.' },
+        { tempo: '10 min', acao: 'Anote um exemplo resolvido e explique as etapas do cálculo.' },
+      ]),
+      blocoQuestoesIntensivo('Questões de Ciências da Natureza', 'natureza', 9, 'Usar interpretação e conceitos de Química e Biologia sem depender de decorar respostas.', [
+        { tempo: '5 min', acao: 'Leia as questões e identifique o conteúdo cobrado.' },
+        { tempo: '25 min', acao: 'Resolva as 9 questões e sinalize as que geraram dúvida.' },
+        { tempo: '10 min', acao: 'Confira o gabarito e reveja o conceito de uma questão errada.' },
+      ]),
+      blocoVideoIntensivo('Corpo humano e doenças', 'Revisar a função dos sistemas do corpo e relacionar agentes infecciosos, transmissão e prevenção.', [
+        { titulo: 'Videoaulas do sistema cardiovascular', href: 'https://enemhub.com.br/topico/sistema-cardiovascular' },
+        { titulo: 'Videoaulas de viroses e doenças', href: 'https://enemhub.com.br/topico/viroses' },
+      ], [
+        { tempo: '15 min', acao: 'Escolha uma videoaula curta sobre um sistema do corpo humano.' },
+        { tempo: '15 min', acao: 'Revise uma doença: agente causador, transmissão e prevenção.' },
+        { tempo: '10 min', acao: 'Crie 3 flashcards de pergunta e resposta para revisar depois.' },
+      ]),
     ],
   },
   {
     titulo: 'Simulado parcial do 2º dia', dia: 'Sexta-feira', carga: '4h líquidas', blocos: [
-      { duracao: '60 min', titulo: '20 questões de Matemática · ritmo de prova', sessao: { area: 'matematica', tamanho: 20 } },
-      { duracao: '60 min', titulo: '20 questões de Ciências da Natureza · ritmo de prova', sessao: { area: 'natureza', tamanho: 20 } },
-      { duracao: '60 min', titulo: 'Corrigir Matemática e anotar o motivo dos erros' },
-      { duracao: '60 min', titulo: 'Corrigir Natureza e separar dúvidas para revisão' },
+      blocoQuestoesIntensivo('Simulado: 20 questões de Matemática', 'matematica', 20, 'Treinar ritmo de prova e decidir quando seguir para a próxima questão.', [
+        { tempo: '50 min', acao: 'Resolva as 20 questões em ritmo de prova e marque as que quer revisar.' },
+        { tempo: '10 min', acao: 'Revise as marcações sem consultar o gabarito ainda.' },
+      ], '60 min'),
+      blocoQuestoesIntensivo('Simulado: 20 questões de Ciências da Natureza', 'natureza', 20, 'Treinar interpretação e controle do tempo em Física, Química e Biologia.', [
+        { tempo: '50 min', acao: 'Resolva as 20 questões em ritmo de prova e marque as que quer revisar.' },
+        { tempo: '10 min', acao: 'Revise as marcações sem consultar o gabarito ainda.' },
+      ], '60 min'),
+      blocoRoteiroIntensivo('60 min', 'Corrigir Matemática e anotar o motivo dos erros', 'Identificar se cada erro veio de conteúdo, cálculo, leitura ou falta de tempo.', [
+        { tempo: '40 min', acao: 'Confira as 20 respostas e refaça as questões erradas.' },
+        { tempo: '20 min', acao: 'Classifique os erros e escolha 3 pontos para revisar.' },
+      ]),
+      blocoRoteiroIntensivo('60 min', 'Corrigir Natureza e separar dúvidas para revisão', 'Transformar cada erro em uma dúvida ou conceito específico para retomar.', [
+        { tempo: '40 min', acao: 'Confira as 20 respostas e releia os enunciados que errou.' },
+        { tempo: '20 min', acao: 'Separe as dúvidas por Física, Química e Biologia.' },
+      ]),
     ],
   },
   {
     titulo: 'Mapa mental e descanso', dia: 'Sábado', carga: 'Revisão leve · 30 a 45 min', blocos: [
-      { duracao: '20 min', titulo: 'Mapa mental com fórmulas e erros mais importantes' },
-      { duracao: '10–25 min', titulo: 'Uma questão leve de Matemática, sem cronômetro', sessao: { area: 'matematica', tamanho: 1, modo: 'livre' } },
-      { duracao: 'Fim do dia', titulo: 'Separar o necessário para a prova e dormir cedo' },
+      blocoRoteiroIntensivo('20 min', 'Mapa mental com fórmulas e erros mais importantes', 'Organizar só o que você quer lembrar antes da prova, sem abrir assuntos novos.', [
+        { tempo: '5 min', acao: 'Escolha os erros mais frequentes do simulado.' },
+        { tempo: '10 min', acao: 'Monte um mapa com fórmulas, conceitos e palavras-chave.' },
+        { tempo: '5 min', acao: 'Feche o material e tente explicar o mapa de memória.' },
+      ]),
+      blocoQuestoesIntensivo('Uma questão leve de Matemática, sem cronômetro', 'matematica', 1, 'Manter o contato com Matemática sem transformar a revisão em outro simulado.', [
+        { tempo: '10–25 min', acao: 'Resolva uma questão confortável, confira e encerre o estudo.' },
+      ], '10–25 min', 'livre'),
+      blocoRoteiroIntensivo('Fim do dia', 'Separar o necessário para a prova e dormir cedo', 'Chegar descansado e com o material preparado.', [
+        { tempo: '5 min', acao: 'Separe documentos, canetas e o que vai levar.' },
+        { tempo: 'Depois', acao: 'Encerre a revisão e priorize uma boa noite de sono.' },
+      ]),
     ],
   },
 ];
@@ -1567,15 +1697,28 @@ function dataCurta(chave) {
 }
 
 function htmlBlocoIntensivo(bloco, diaIndex, blocoIndex) {
-  const recurso = bloco.href
-    ? `<a class="botao-recurso" href="${escapar(bloco.href)}" target="_blank" rel="noopener noreferrer">Videoaulas + questões no EnemHub ↗</a>`
+  const recursos = bloco.recursos || (bloco.href
+    ? [{ titulo: 'Videoaulas + questões do tema', href: bloco.href }]
+    : []);
+  const linksRecursos = recursos.map((recurso) =>
+    `<a class="botao-recurso" href="${escapar(recurso.href)}" target="_blank" rel="noopener noreferrer">▶ ${escapar(recurso.titulo)} ↗</a>`
+  ).join('');
+  const foco = bloco.foco
+    ? `<p class="foco-intensivo"><b>Objetivo:</b> ${escapar(bloco.foco)}</p>`
+    : '';
+  const roteiro = Array.isArray(bloco.roteiro) && bloco.roteiro.length
+    ? `<details class="roteiro-intensivo">
+         <summary>Ver passo a passo</summary>
+         <ol>${bloco.roteiro.map((passo) => `<li><b>${escapar(passo.tempo)}</b><span>${escapar(passo.acao)}</span></li>`).join('')}</ol>
+       </details>`
     : '';
   const treino = bloco.sessao
     ? `<button class="secundario" data-intensivo-treino="true" data-area="${escapar(bloco.sessao.area)}" data-tamanho="${bloco.sessao.tamanho}" data-modo="${escapar(bloco.sessao.modo || 'porQuestao')}" data-bloco="${diaIndex}-${blocoIndex}">${escapar(bloco.sessao.tamanho === 1 ? 'Fazer 1 questão no Prumo' : `Fazer ${bloco.sessao.tamanho} questões no Prumo`)}</button>`
     : '';
   return `<div class="bloco-intensivo">
     <div class="bloco-intensivo-cabecalho"><span>${escapar(bloco.duracao)}</span><b>${escapar(bloco.titulo)}</b></div>
-    ${(recurso || treino) ? `<div class="acoes-intensivo">${recurso}${treino}</div>` : ''}
+    ${foco}${roteiro}
+    ${(linksRecursos || treino) ? `<div class="acoes-intensivo">${linksRecursos}${treino}</div>` : ''}
   </div>`;
 }
 
@@ -1609,14 +1752,14 @@ function cartaoIntensivo() {
   return `<div class="cartao cartao-intensivo">
     <h3>Intensivo para o 2º dia do ENEM</h3>
     <p class="fraco">${escapar(status)}</p>
-    <p class="fraco">Segunda livre. Terça a sexta: 4 horas líquidas por dia. Sábado: mapa mental, uma questão leve de Matemática e cama cedo. Domingo: dia da prova. O simulado de sexta tem 20 questões de Matemática e 20 de Natureza.</p>
+    <p class="fraco">Segunda livre. Terça a sexta: 4 horas líquidas por dia, com videoaulas nos blocos de conteúdo. O simulado de sexta tem 20 questões de Matemática e 20 de Natureza, mais correção. Sábado: mapa mental, uma questão leve de Matemática e cama cedo. Domingo: dia da prova.</p>
     ${temPlano ? `<div class="barra"><i style="width:${percentual}%"></i></div>` : ''}
     <div class="lista-dias-intensivo">${dias}</div>
     ${temPlano
       ? `<button class="secundario" id="btn-reiniciar-intensivo" style="margin-top:12px">Reiniciar intensivo · começa ${dataCurta(inicioProposto)}</button>
          <button class="secundario" id="btn-desativar-intensivo" style="margin-top:8px">Desativar intensivo</button>`
       : '<button class="primario" id="btn-ativar-intensivo" style="margin-top:14px">Ativar meu intensivo</button>'}
-    <p class="fraco" style="margin-top:12px">As sessões do Prumo usam questões da área escolhida; os links de cada assunto abrem videoaulas e questões específicas.</p>
+    <p class="fraco" style="margin-top:12px">Cada bloco mostra o objetivo e um passo a passo com tempo. Abra “Ver passo a passo” para seguir a sessão; os links levam às videoaulas e questões do assunto.</p>
   </div>`;
 }
 
