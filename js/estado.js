@@ -42,7 +42,7 @@ function estadoInicial() {
     notaRedacao: null,
     redacao: { competencias: {}, ultimaAtualizacao: null, tempos: [] },
     preferenciaSessao: null,
-    intensivo: { modo: null, inicio: null, diasConcluidos: [] },
+    intensivo: { modo: null, inicio: null, diasConcluidos: [], blocosConcluidos: [] },
     nome: null,
     foto: null,
     plano: 'gratuito',
@@ -82,6 +82,8 @@ function normalizarEstado() {
     inicio: estado.intensivo?.inicio || null,
     diasConcluidos: Array.isArray(estado.intensivo?.diasConcluidos)
       ? [...new Set(estado.intensivo.diasConcluidos)] : [],
+    blocosConcluidos: Array.isArray(estado.intensivo?.blocosConcluidos)
+      ? [...new Set(estado.intensivo.blocosConcluidos.filter((chave) => typeof chave === 'string'))] : [],
   };
 
   for (const area of AREAS) {

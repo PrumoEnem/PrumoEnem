@@ -1696,7 +1696,11 @@ function dataCurta(chave) {
   return `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}`;
 }
 
-function htmlBlocoIntensivo(bloco, diaIndex, blocoIndex) {
+function chaveBlocoIntensivo(inicio, diaIndex, blocoIndex) {
+  return `${avancarData(inicio, diaIndex)}:${blocoIndex}`;
+}
+
+function htmlBlocoIntensivo(bloco, diaIndex, blocoIndex, concluido, ativo) {
   const recursos = bloco.recursos || (bloco.href
     ? [{ titulo: 'Videoaulas + questões do tema', href: bloco.href }]
     : []);
@@ -1715,37 +1719,44 @@ function htmlBlocoIntensivo(bloco, diaIndex, blocoIndex) {
   const treino = bloco.sessao
     ? `<button class="secundario" data-intensivo-treino="true" data-area="${escapar(bloco.sessao.area)}" data-tamanho="${bloco.sessao.tamanho}" data-modo="${escapar(bloco.sessao.modo || 'porQuestao')}" data-bloco="${diaIndex}-${blocoIndex}">${escapar(bloco.sessao.tamanho === 1 ? 'Fazer 1 questão no Prumo' : `Fazer ${bloco.sessao.tamanho} questões no Prumo`)}</button>`
     : '';
+  const marcar = ativo
+    ? `<button class="botao-conclusao-intensivo ${concluido ? 'concluido' : ''}" data-intensivo-concluir="${diaIndex}-${blocoIndex}" aria-pressed="${concluido}" aria-label="${concluido ? 'Desmarcar tarefa concluída' : 'Marcar tarefa como concluída'}">${concluido ? '✓ Tarefa concluída' : 'Marcar como concluída'}</button>`
+    : '';
   return `<div class="bloco-intensivo">
     <div class="bloco-intensivo-cabecalho"><span>${escapar(bloco.duracao)}</span><b>${escapar(bloco.titulo)}</b></div>
     ${foco}${roteiro}
-    ${(linksRecursos || treino) ? `<div class="acoes-intensivo">${linksRecursos}${treino}</div>` : ''}
+    ${(linksRecursos || treino || marcar) ? `<div class="acoes-intensivo">${linksRecursos}${treino}${marcar}</div>` : ''}
   </div>`;
 }
 
 function cartaoIntensivo() {
-  const sprint = est.estado.intensivo || { inicio: null, diasConcluidos: [] };
+  const sprint = est.estado.intensivo || { inicio: null, diasConcluidos: [], blocosConcluidos: [] };
   const temPlano = sprint.modo === 'dia2' && Boolean(sprint.inicio);
   const dia = temPlano ? diaAtualIntensivo(sprint) : 0;
-  const concluidos = sprint.diasConcluidos || [];
-  const fim = temPlano ? avancarData(sprint.inicio, ETAPAS_INTENSIVAS.length - 1) : null;
-  const feitos = temPlano ? concluidos.filter((data) => data >= sprint.inicio && data <= fim).length : 0;
-  const percentual = Math.round(feitos / ETAPAS_INTENSIVAS.length * 100);
+  const concluidos = new Set(sprint.blocosConcluidos || []);
+  const totalTarefas = ETAPAS_INTENSIVAS.reduce((total, item) => total + item.blocos.length, 0);
+  const chaveTarefa = (diaIndex, blocoIndex) => chaveBlocoIntensivo(sprint.inicio, diaIndex, blocoIndex);
+  const feitos = temPlano
+    ? ETAPAS_INTENSIVAS.reduce((total, item, diaIndex) => total + item.blocos.filter((_, blocoIndex) => concluidos.has(chaveTarefa(diaIndex, blocoIndex))).length, 0)
+    : 0;
+  const percentual = Math.round(feitos / totalTarefas * 100);
   const inicioProposto = proximaTerca();
   const status = !temPlano
     ? `Ative para começar na terça-feira, ${dataCurta(inicioProposto)}.`
     : dia === 0
       ? `Seu plano começa na terça-feira, ${dataCurta(sprint.inicio)}.`
       : dia <= ETAPAS_INTENSIVAS.length
-        ? `Etapa ${dia} de ${ETAPAS_INTENSIVAS.length} · ${feitos} dias concluídos.`
-        : `Ciclo concluído · ${feitos} de ${ETAPAS_INTENSIVAS.length} dias registrados.`;
+        ? `Etapa ${dia} de ${ETAPAS_INTENSIVAS.length} · ${feitos} de ${totalTarefas} tarefas concluídas.`
+        : `Ciclo concluído · ${feitos} de ${totalTarefas} tarefas concluídas.`;
   const dias = ETAPAS_INTENSIVAS.map((item, i) => {
     const numero = i + 1;
     const data = temPlano ? dataCurta(avancarData(sprint.inicio, i)) : item.dia;
-    const feito = temPlano && concluidos.includes(avancarData(sprint.inicio, i));
+    const totalDia = item.blocos.length;
+    const feitosDia = item.blocos.filter((_, j) => temPlano && concluidos.has(chaveTarefa(i, j))).length;
     const aberto = numero === dia || (!temPlano && numero === 1);
     return `<details class="dia-intensivo" ${aberto ? 'open' : ''}>
-      <summary><span>${escapar(data)} · ${escapar(item.titulo)}</span><b>${feito ? '✓' : `${item.carga}`}</b></summary>
-      <div class="lista-blocos-intensivo">${item.blocos.map((bloco, j) => htmlBlocoIntensivo(bloco, i, j)).join('')}</div>
+      <summary><span>${escapar(data)} · ${escapar(item.titulo)}</span><b>${temPlano ? `${feitosDia}/${totalDia} feitas` : `${item.carga}`}</b></summary>
+      <div class="lista-blocos-intensivo">${item.blocos.map((bloco, j) => htmlBlocoIntensivo(bloco, i, j, temPlano && concluidos.has(chaveTarefa(i, j)), temPlano)).join('')}</div>
     </details>`;
   }).join('');
 
@@ -1759,21 +1770,38 @@ function cartaoIntensivo() {
       ? `<button class="secundario" id="btn-reiniciar-intensivo" style="margin-top:12px">Reiniciar intensivo · começa ${dataCurta(inicioProposto)}</button>
          <button class="secundario" id="btn-desativar-intensivo" style="margin-top:8px">Desativar intensivo</button>`
       : '<button class="primario" id="btn-ativar-intensivo" style="margin-top:14px">Ativar meu intensivo</button>'}
-    <p class="fraco" style="margin-top:12px">Cada bloco mostra o objetivo e um passo a passo com tempo. Abra “Ver passo a passo” para seguir a sessão; os links levam às videoaulas e questões do assunto.</p>
+    <p class="fraco" style="margin-top:12px">Cada bloco mostra o objetivo e um passo a passo com tempo. Ative o intensivo para marcar cada tarefa como concluída; seu progresso fica salvo. Abra “Ver passo a passo” para seguir a sessão.</p>
   </div>`;
 }
 
 function ligarIntensivo() {
   const ativar = () => {
-    est.estado.intensivo = { modo: 'dia2', inicio: proximaTerca(), diasConcluidos: [] };
+    est.estado.intensivo = { modo: 'dia2', inicio: proximaTerca(), diasConcluidos: [], blocosConcluidos: [] };
     est.salvarLocal(); est.sincronizar(); desenharPlano();
   };
   if ($('#btn-ativar-intensivo')) $('#btn-ativar-intensivo').onclick = ativar;
   if ($('#btn-reiniciar-intensivo')) $('#btn-reiniciar-intensivo').onclick = ativar;
   if ($('#btn-desativar-intensivo')) $('#btn-desativar-intensivo').onclick = () => {
-    est.estado.intensivo = { modo: null, inicio: null, diasConcluidos: [] };
+    est.estado.intensivo = { modo: null, inicio: null, diasConcluidos: [], blocosConcluidos: [] };
     est.salvarLocal(); est.sincronizar(); desenharPlano();
   };
+  document.querySelectorAll('[data-intensivo-concluir]').forEach((botao) => {
+    botao.onclick = () => {
+      const [diaIndex, blocoIndex] = botao.dataset.intensivoConcluir.split('-').map(Number);
+      const diaAberto = botao.closest('.dia-intensivo');
+      const sprint = est.estado.intensivo;
+      const chave = chaveBlocoIntensivo(sprint.inicio, diaIndex, blocoIndex);
+      const marcados = new Set(sprint.blocosConcluidos || []);
+      if (marcados.has(chave)) marcados.delete(chave);
+      else marcados.add(chave);
+      sprint.blocosConcluidos = [...marcados];
+      est.salvarLocal();
+      est.sincronizar();
+      desenharPlano();
+      const dias = document.querySelectorAll('.dia-intensivo');
+      if (diaAberto) dias[diaIndex]?.setAttribute('open', '');
+    };
+  });
   document.querySelectorAll('[data-intensivo-treino="true"]').forEach((botao) => {
     botao.onclick = () => {
       const area = botao.dataset.area;
