@@ -1,6 +1,6 @@
 /* sw.js — cache-first para o app, stale-while-revalidate para os dados. */
 
-const VERSAO = 'v18';
+const VERSAO = 'v19';
 const ESTATICO = `estatico-${VERSAO}`;
 const DADOS = `dados-${VERSAO}`;
 

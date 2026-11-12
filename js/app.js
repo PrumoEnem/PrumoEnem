@@ -1144,20 +1144,29 @@ function desenharErrosPendentes() {
 
 // ---------------------------------------------------------------- provas
 
-const PROVAS = [
-  { ano: 2023, dia: 1, arquivo: 'ENEM_2023_P1_CAD_01_DIA_1_AZUL.pdf' },
-  { ano: 2023, dia: 2, arquivo: 'ENEM_2023_P2_CAD_07_DIA_2_AZUL.pdf' },
-  { ano: 2022, dia: 1, arquivo: 'ENEM_2022_P1_CAD_01_DIA_1_AZUL.pdf' },
-  { ano: 2022, dia: 2, arquivo: 'ENEM_2022_P1_CAD_07_DIA_2_AZUL.pdf' },
-  { ano: 2021, dia: 1, arquivo: 'ENEM_2021_DIGITAL_CAD_01_DIA_1_AZUL_ESPANHOL.pdf' },
-  { ano: 2021, dia: 2, arquivo: 'ENEM_2021_DIGITAL_CAD_07_DIA_2_AZUL.pdf' },
-  { ano: 2020, dia: 1, arquivo: 'ENEM_2020_DIGITAL_CAD_01_DIA_1_AZUL_ESPANHOL.pdf' },
-  { ano: 2020, dia: 2, arquivo: 'ENEM_2020_DIGITAL_CAD_07_DIA_2_AZUL.pdf' },
-];
+const ARQUIVOS_PROVAS = {
+  2025: ['ENEM_2025_P1_CAD_01_DIA_1_AZUL.pdf', 'ENEM_2025_P2_CAD_07_DIA_2_AZUL.pdf'],
+  2024: ['ENEM_2024_P1_CAD_01_DIA_1_AZUL.pdf', 'ENEM_2024_P2_CAD_07_DIA_2_AZUL.pdf'],
+  2023: ['ENEM_2023_P1_CAD_01_DIA_1_AZUL.pdf', 'ENEM_2023_P2_CAD_07_DIA_2_AZUL.pdf'],
+  2022: ['ENEM_2022_P1_CAD_01_DIA_1_AZUL.pdf', 'ENEM_2022_P1_CAD_07_DIA_2_AZUL.pdf'],
+  2021: ['ENEM_2021_DIGITAL_CAD_01_DIA_1_AZUL_ESPANHOL.pdf', 'ENEM_2021_DIGITAL_CAD_07_DIA_2_AZUL.pdf'],
+  2020: ['ENEM_2020_DIGITAL_CAD_01_DIA_1_AZUL_ESPANHOL.pdf', 'ENEM_2020_DIGITAL_CAD_07_DIA_2_AZUL.pdf'],
+  2019: ['ENEM_2019_P1_CAD_01_DIA_1_AZUL.pdf', 'ENEM_2019_P2_CAD_07_DIA_2_AZUL.pdf'],
+  2018: ['ENEM_2018_P1_CAD_01_DIA_1_AZUL.pdf', 'ENEM_2018_P2_CAD_07_DIA_2_AZUL.pdf'],
+  2017: ['ENEM_2017_P1_CAD_01_DIA_1_AZUL.pdf', 'ENEM_2017_P2_CAD_07_DIA_2_AZUL.pdf'],
+  2016: ['ENEM_2016_P1_CAD_01_DIA_1_AZUL.pdf', 'ENEM_2016_P2_CAD_07_DIA_2_AZUL.pdf'],
+  2015: ['ENEM_2015_P1_CAD_01_DIA_1_AZUL.pdf', 'ENEM_2015_P2_CAD_07_DIA_2_AZUL.pdf'],
+  2014: ['ENEM_2014_P1_CAD_01_DIA_1_AZUL.pdf', 'ENEM_2014_P2_CAD_07_DIA_2_AZUL.pdf'],
+  2013: ['ENEM_2013_P1_CAD_01_DIA_1_AZUL.pdf', 'ENEM_2013_P2_CAD_07_DIA_2_AZUL.pdf'],
+  2012: ['ENEM_2012_P1_CAD_01_DIA_1_AZUL.pdf', 'ENEM_2012_P2_CAD_07_DIA_2_AZUL.pdf'],
+  2011: ['ENEM_2011_P1_CAD_01_DIA_1_AZUL.pdf', 'ENEM_2011_P2_CAD_07_DIA_2_AZUL.pdf'],
+  2010: ['ENEM_2010_P1_CAD_01_DIA_1_AZUL.pdf', 'ENEM_2010_P2_CAD_07_DIA_2_AZUL.pdf'],
+  2009: ['ENEM_2009_P1_CAD_01_DIA_1_AZUL.pdf', 'ENEM_2009_P2_CAD_07_DIA_2_AZUL.pdf'],
+};
 
-const ANO_PROVAS_INICIO = 2009;
-const ANO_PROVAS_FIM = 2025;
-const URL_PROVAS_INEP = 'https://www.gov.br/inep/pt-br/areas-de-atuacao/avaliacao-e-exames-educacionais/enem/provas-e-gabaritos';
+const PROVAS = Object.entries(ARQUIVOS_PROVAS).flatMap(([ano, arquivos]) =>
+  arquivos.map((arquivo, dia) => ({ ano: Number(ano), dia: dia + 1, arquivo }))
+);
 
 const CONTEUDO_DIA = {
   1: 'Linguagens, Humanas e Redação · 5h30',
@@ -1165,15 +1174,11 @@ const CONTEUDO_DIA = {
 };
 
 function desenharProvas() {
-  const anos = Array.from(
-    { length: ANO_PROVAS_FIM - ANO_PROVAS_INICIO + 1 },
-    (_, i) => ANO_PROVAS_FIM - i
-  );
+  const anos = [...new Set(PROVAS.map((p) => p.ano))].sort((a, b) => b - a);
 
   $('#revisao-corpo').innerHTML = `
-    <p class="fraco">Escolha uma edição de 2009 a 2025. Os PDFs de 2020 a 2023
-    estão disponíveis aqui; nos outros anos, o botão abre os cadernos e gabaritos
-    oficiais do INEP.</p>
+    <p class="fraco">Provas oficiais completas em PDF, caderno azul, de 2009 a 2025.
+    Abra para fazer no navegador ou baixe para treinar no papel.</p>
     ${anos.map((ano) => `
       <div class="cartao">
         <h3>ENEM ${ano}</h3>
@@ -1188,12 +1193,8 @@ function desenharProvas() {
               <a class="botao secundario" href="provas/${escapar(p.arquivo)}" download="${escapar(p.arquivo)}">Baixar</a>
             </span>
           </div>`).join('')}
-        ${!PROVAS.some((p) => p.ano === ano)
-          ? '<p class="fraco">Cadernos dos dois dias e gabaritos disponíveis no acervo oficial.</p>'
-          : ''}
-        <a class="botao secundario" href="${URL_PROVAS_INEP}/${ano}" target="_blank" rel="noopener noreferrer">Ver provas e gabaritos no INEP ↗</a>
       </div>`).join('')}
-    <p class="fraco">O acervo oficial inclui cadernos, reaplicações e gabaritos de cada ano.</p>`;
+    <p class="fraco">Os gabaritos oficiais também podem ser consultados no site do INEP.</p>`;
 }
 
 // ---------------------------------------------------------------- resumos
