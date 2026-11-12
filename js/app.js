@@ -1155,17 +1155,25 @@ const PROVAS = [
   { ano: 2020, dia: 2, arquivo: 'ENEM_2020_DIGITAL_CAD_07_DIA_2_AZUL.pdf' },
 ];
 
+const ANO_PROVAS_INICIO = 2009;
+const ANO_PROVAS_FIM = 2025;
+const URL_PROVAS_INEP = 'https://www.gov.br/inep/pt-br/areas-de-atuacao/avaliacao-e-exames-educacionais/enem/provas-e-gabaritos';
+
 const CONTEUDO_DIA = {
   1: 'Linguagens, Humanas e Redação · 5h30',
   2: 'Natureza e Matemática · 5h',
 };
 
 function desenharProvas() {
-  const anos = [...new Set(PROVAS.map((p) => p.ano))].sort((a, b) => b - a);
+  const anos = Array.from(
+    { length: ANO_PROVAS_FIM - ANO_PROVAS_INICIO + 1 },
+    (_, i) => ANO_PROVAS_FIM - i
+  );
 
   $('#revisao-corpo').innerHTML = `
-    <p class="fraco">Provas completas em PDF, caderno azul. Baixe para treinar
-    no papel, com o tempo real da prova — é o único jeito de treinar cansaço.</p>
+    <p class="fraco">Escolha uma edição de 2009 a 2025. Os PDFs de 2020 a 2023
+    estão disponíveis aqui; nos outros anos, o botão abre os cadernos e gabaritos
+    oficiais do INEP.</p>
     ${anos.map((ano) => `
       <div class="cartao">
         <h3>ENEM ${ano}</h3>
@@ -1180,9 +1188,12 @@ function desenharProvas() {
               <a class="botao secundario" href="provas/${escapar(p.arquivo)}" download="${escapar(p.arquivo)}">Baixar</a>
             </span>
           </div>`).join('')}
+        ${!PROVAS.some((p) => p.ano === ano)
+          ? '<p class="fraco">Cadernos dos dois dias e gabaritos disponíveis no acervo oficial.</p>'
+          : ''}
+        <a class="botao secundario" href="${URL_PROVAS_INEP}/${ano}" target="_blank" rel="noopener noreferrer">Ver provas e gabaritos no INEP ↗</a>
       </div>`).join('')}
-    <p class="fraco">Os gabaritos oficiais saem no site do INEP. As questões
-    destes anos também estão no banco do app, já com a dificuldade calibrada.</p>`;
+    <p class="fraco">O acervo oficial inclui cadernos, reaplicações e gabaritos de cada ano.</p>`;
 }
 
 // ---------------------------------------------------------------- resumos
